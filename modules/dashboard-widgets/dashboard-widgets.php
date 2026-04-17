@@ -117,6 +117,11 @@ function dp_toolbox_dashboard_render() {
         if ( $show_punch )     dp_toolbox_dashboard_section_punch();
         echo '</div>';
     }
+
+    // Tutorials — altijd als laatste onderdeel van de widget
+    if ( get_option( 'dp_toolbox_dashboard_tutorials', false ) ) {
+        dp_toolbox_dashboard_section_tutorials();
+    }
 }
 
 /* ------------------------------------------------------------------
@@ -485,44 +490,44 @@ function dp_toolbox_dashboard_section_welkom( $ia_data = null ) {
             <a href="<?php echo esc_url( $new_post ); ?>" class="dp-dash-btn dp-dash-btn-primary">+ Nieuw bericht</a>
             <a href="<?php echo esc_url( $view_site ); ?>" class="dp-dash-btn dp-dash-btn-secondary" target="_blank">Bekijk site &#8599;</a>
         </div>
+    </div>
+    <?php
+}
 
-        <?php
-        // Tutorials footer (optioneel)
-        if ( get_option( 'dp_toolbox_dashboard_tutorials', false ) ) {
-            $tut_urls = (array) get_option( 'dp_toolbox_dashboard_tutorial_urls', [] );
-            $video_ids = [];
-            foreach ( $tut_urls as $url ) {
-                $id = dp_toolbox_dashboard_youtube_id( $url );
-                if ( $id ) $video_ids[] = $id;
-            }
-            $video_ids = array_slice( $video_ids, 0, 3 );
-            if ( ! empty( $video_ids ) ) :
-                $count = count( $video_ids );
-        ?>
-            <div class="dp-dash-tutorials">
-                <div class="dp-dash-tutorials-title">
-                    <span class="dashicons dashicons-video-alt3"></span>
-                    Tutorials
+/* ------------------------------------------------------------------
+ *  Sectie: Tutorials (YouTube-video's, onderaan widget)
+ * ------------------------------------------------------------------ */
+function dp_toolbox_dashboard_section_tutorials() {
+    $tut_urls  = (array) get_option( 'dp_toolbox_dashboard_tutorial_urls', [] );
+    $video_ids = [];
+    foreach ( $tut_urls as $url ) {
+        $id = dp_toolbox_dashboard_youtube_id( $url );
+        if ( $id ) $video_ids[] = $id;
+    }
+    $video_ids = array_slice( $video_ids, 0, 3 );
+    if ( empty( $video_ids ) ) return;
+
+    $count = count( $video_ids );
+    ?>
+    <div class="dp-dash-tutorials">
+        <div class="dp-dash-tutorials-title">
+            <span class="dashicons dashicons-video-alt3"></span>
+            Tutorials
+        </div>
+        <div class="dp-dash-tutorials-grid" data-count="<?php echo (int) $count; ?>">
+            <?php foreach ( $video_ids as $vid ) : ?>
+                <div class="dp-dash-tutorial">
+                    <iframe
+                        src="https://www.youtube-nocookie.com/embed/<?php echo esc_attr( $vid ); ?>"
+                        title="YouTube video"
+                        frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allowfullscreen
+                        loading="lazy"></iframe>
                 </div>
-                <div class="dp-dash-tutorials-grid" data-count="<?php echo (int) $count; ?>">
-                    <?php foreach ( $video_ids as $vid ) : ?>
-                        <div class="dp-dash-tutorial">
-                            <iframe
-                                src="https://www.youtube-nocookie.com/embed/<?php echo esc_attr( $vid ); ?>"
-                                title="YouTube video"
-                                frameborder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                referrerpolicy="strict-origin-when-cross-origin"
-                                allowfullscreen
-                                loading="lazy"></iframe>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        <?php
-            endif;
-        }
-        ?>
+            <?php endforeach; ?>
+        </div>
     </div>
     <?php
 }
@@ -859,11 +864,12 @@ add_action( 'admin_head-index.php', function () {
 
         .dp-dash-welkom-footer { background: #f8f7fc; padding: 14px 32px; display: flex; align-items: center; gap: 10px; }
 
-        /* ---- Tutorials footer-balk ---- */
+        /* ---- Tutorials footer-balk (laatste sectie van de widget) ---- */
         .dp-dash-tutorials {
             background: #f0edf8;
             border-top: 1px solid #e0dcec;
-            padding: 18px 32px 22px;
+            padding: 22px 32px 24px;
+            margin-top: -4px;
         }
         .dp-dash-tutorials-title {
             display: flex; align-items: center; gap: 6px;
