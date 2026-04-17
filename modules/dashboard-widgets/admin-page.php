@@ -140,6 +140,7 @@ function dp_toolbox_dashboard_page() {
                 [ 'id' => 'analytics',  'name' => 'dp_toolbox_dashboard_analytics',  'val' => $analytics,  'title' => 'Analytics',         'desc' => 'Bezoekers, pageviews, top pagina\'s en referrers van de laatste 7 dagen (via Independent Analytics).', 'requires_ia' => true ],
                 [ 'id' => 'forms',      'name' => 'dp_toolbox_dashboard_forms',      'val' => $forms,      'title' => 'Inzendingen',       'desc' => 'Recente formulier-inzendingen via Bit Form.' ],
                 [ 'id' => 'converter',  'name' => 'dp_toolbox_dashboard_converter',  'val' => $converter,  'title' => 'Image Converter',   'desc' => 'Promotie voor de gratis tool convert.designpixels.nl.' ],
+                [ 'id' => 'tutorials',  'name' => 'dp_toolbox_dashboard_tutorials',  'val' => $tutorials,  'title' => 'Tutorials',         'desc' => 'Toon 1 tot 3 YouTube tutorial-video\'s onderaan de welkom-widget.' ],
                 [ 'id' => 'punch_card', 'name' => 'dp_toolbox_dashboard_punch_card', 'val' => $punch_card, 'title' => 'Strippen',          'desc' => 'Toon het aantal beschikbare strippen via de API.' ],
             ];
 
@@ -199,6 +200,26 @@ function dp_toolbox_dashboard_page() {
             <label for="dp-dw-api-key">API Key</label>
             <input type="text" id="dp-dw-api-key" name="dp_toolbox_dashboard_api_key" value="<?php echo esc_attr( $api_key ); ?>" placeholder="Voer je API-key in">
             <div class="dp-dw-api-help">De API-key vind je in je klantportaal. De data wordt 15 minuten gecachet.</div>
+        </div>
+
+        <!-- Sectie 4: Tutorials URL's -->
+        <div id="dp-dw-tutorials-section" class="dp-dw-api-section" style="<?php echo $tutorials ? '' : 'display:none'; ?>">
+            <div class="dp-dw-section" style="margin-top:0; border-bottom: none; padding-bottom: 4px;">
+                <span class="dashicons dashicons-video-alt3"></span> Tutorial video's
+            </div>
+            <p class="dp-dw-api-help" style="margin-top:0; margin-bottom:14px;">
+                Vul 1 tot 3 YouTube-URL's in. Ze verschijnen onderaan de welkom-widget, naast elkaar op desktop en onder elkaar op mobiel.
+                Accepteert <code>youtube.com/watch?v=…</code>, <code>youtu.be/…</code> en <code>youtube.com/embed/…</code>.
+            </p>
+            <?php for ( $i = 0; $i < 3; $i++ ) : ?>
+                <div style="margin-bottom:10px;">
+                    <label for="dp-dw-tut-<?php echo $i; ?>">Video <?php echo $i + 1; ?></label>
+                    <input type="url" id="dp-dw-tut-<?php echo $i; ?>"
+                           name="dp_toolbox_dashboard_tutorial_urls[]"
+                           value="<?php echo esc_attr( $tut_urls[ $i ] ); ?>"
+                           placeholder="https://www.youtube.com/watch?v=...">
+                </div>
+            <?php endfor; ?>
         </div>
 
         <button type="submit" class="dp-dw-btn">Opslaan</button>
