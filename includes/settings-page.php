@@ -304,6 +304,7 @@ function dp_toolbox_render_modules_tab() {
         'dashboard-widgets' => 'dashboard',
         'site-navigator'    => 'admin',
         'role-manager'      => 'admin',
+        'user-manager'      => 'admin',
         'menu-sorter'       => 'admin',
         'page-sorter'       => 'admin',
         'plugins-sorter'    => 'admin',
