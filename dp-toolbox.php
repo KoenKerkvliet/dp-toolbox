@@ -7,7 +7,6 @@
  * Text Domain: dp-toolbox
  * GitHub Plugin URI: KoenKerkvliet/dp-toolbox
  * Primary Branch: main
- * Release Asset: true
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
