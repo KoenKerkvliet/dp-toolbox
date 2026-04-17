@@ -1,0 +1,83 @@
+/**
+ * DP Toolbox — Site Navigator admin bar styles
+ * Flyout pattern based on WordPress native admin bar behavior.
+ */
+
+/* Root menu item */
+#wpadminbar #wp-admin-bar-dp-site-nav > .ab-item {
+    display: flex;
+    align-items: center;
+}
+
+#wpadminbar #wp-admin-bar-dp-site-nav > .ab-item img {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Scrollable submenus — only level 2+ (NOT the first dropdown) */
+#wp-admin-bar-dp-site-nav .ab-submenu:not(#wp-admin-bar-dp-site-nav-default) {
+    max-height: 80dvh;
+    overflow-y: auto;
+}
+
+/* Section dividers */
+#wpadminbar li.dp-sn-has-border {
+    border-top: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+/* "Add new" link style */
+#wpadminbar .dp-sn-add-new > .ab-item {
+    color: #72aee6 !important;
+    font-style: italic;
+}
+#wpadminbar .dp-sn-add-new > .ab-item:hover {
+    color: #fff !important;
+}
+
+/* ---- Flyout: parent of mini child ---- */
+
+/* When hovering, position the flyout flush */
+#wpadminbar li.dp-sn-parent-mini.hover > .ab-sub-wrapper {
+    margin: 0;
+    right: 0;
+    top: 0;
+}
+
+/* Hide the default arrow on parents with mini children */
+#wpadminbar li.dp-sn-parent-mini .wp-admin-bar-arrow {
+    display: none;
+}
+
+/* Compact submenu for the mini flyout */
+#wpadminbar li.dp-sn-parent-mini ul.ab-submenu {
+    line-height: 1;
+    padding: 0;
+}
+
+/* ---- Mini child items (new tab icon) ---- */
+
+#wpadminbar li.dp-sn-mini {
+    display: inline-block;
+    padding: 0 5px;
+    border-left: 1px dotted #808080;
+    max-width: 18px;
+    overflow: hidden;
+}
+
+#wpadminbar .dp-sn-mini a {
+    padding: 0;
+}
+
+/* New tab icon */
+#wpadminbar .ab-sub-wrapper .ab-sub-wrapper .ab-submenu li.dp-sn-mini-newtab a::before {
+    content: "\f504";
+    font-family: dashicons;
+    font-size: 14px;
+    line-height: 1;
+    color: #a0a5aa;
+    vertical-align: middle;
+}
+
+#wpadminbar .ab-sub-wrapper .ab-sub-wrapper .ab-submenu li.dp-sn-mini-newtab a:hover::before {
+    color: #00b9eb;
+}

@@ -1,0 +1,67 @@
+/**
+ * DP Toolbox — Media Replacement styles
+ */
+
+/* ---- Replace button (compat field in grid modal + edit screen) ---- */
+
+.dp-mr-wrap {
+    padding: 4px 0;
+}
+
+.dp-mr-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px;
+}
+
+.dp-mr-btn .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    line-height: 14px;
+}
+
+.dp-mr-status {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.dp-mr-hint {
+    margin: 6px 0 0;
+    font-size: 11px;
+    color: #999;
+    line-height: 1.4;
+}
+
+/* ---- Grid modal: show the compat field ---- */
+.compat-field-dp_media_replace {
+    display: table-row !important;
+}
+
+.compat-field-dp_media_replace th {
+    vertical-align: top;
+    padding-top: 10px;
+}
+
+/* ---- Full edit screen: sidebar postbox ---- */
+.dp-mr-postbox {
+    margin-bottom: 16px;
+}
+
+.dp-mr-postbox .postbox-header {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.dp-mr-postbox .postbox-header h2 {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 12px;
+    margin: 0;
+}
+
+.dp-mr-postbox .inside {
+    padding: 12px;
+    margin: 0;
+}
