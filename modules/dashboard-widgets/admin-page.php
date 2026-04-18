@@ -33,6 +33,10 @@ add_action( 'admin_init', function () {
     register_setting( $group, 'dp_toolbox_dashboard_tutorials', [
         'type' => 'boolean', 'sanitize_callback' => function ( $v ) { return (bool) $v; }, 'default' => false,
     ] );
+    // Visitekaartje
+    register_setting( $group, 'dp_toolbox_dashboard_businesscard', [
+        'type' => 'boolean', 'sanitize_callback' => function ( $v ) { return (bool) $v; }, 'default' => true,
+    ] );
     register_setting( $group, 'dp_toolbox_dashboard_tutorial_urls', [
         'type'              => 'array',
         'sanitize_callback' => function ( $input ) {
@@ -72,6 +76,7 @@ function dp_toolbox_dashboard_page() {
     $tutorials    = get_option( 'dp_toolbox_dashboard_tutorials', false );
     $tut_urls     = (array) get_option( 'dp_toolbox_dashboard_tutorial_urls', [] );
     $tut_urls     = array_pad( $tut_urls, 3, '' );
+    $businesscard = get_option( 'dp_toolbox_dashboard_businesscard', true );
     $ia_available = function_exists( 'dp_toolbox_dashboard_ia_available' ) && dp_toolbox_dashboard_ia_available();
     $pi_url       = admin_url( 'admin.php?page=dp-toolbox-plugin-installer' );
 
@@ -142,6 +147,7 @@ function dp_toolbox_dashboard_page() {
                 [ 'id' => 'converter',  'name' => 'dp_toolbox_dashboard_converter',  'val' => $converter,  'title' => 'Image Converter',   'desc' => 'Promotie voor de gratis tool convert.designpixels.nl.' ],
                 [ 'id' => 'tutorials',  'name' => 'dp_toolbox_dashboard_tutorials',  'val' => $tutorials,  'title' => 'Tutorials',         'desc' => 'Toon 1 tot 3 YouTube tutorial-video\'s onderaan de welkom-widget.' ],
                 [ 'id' => 'punch_card', 'name' => 'dp_toolbox_dashboard_punch_card', 'val' => $punch_card, 'title' => 'Strippen',          'desc' => 'Toon het aantal beschikbare strippen via de API.' ],
+                [ 'id' => 'businesscard','name'=> 'dp_toolbox_dashboard_businesscard','val'=> $businesscard,'title'=> 'Visitekaartje',      'desc' => 'Toon een klein Design Pixels visitekaartje onderaan het dashboard.' ],
             ];
 
             foreach ( $widgets as $w ) :

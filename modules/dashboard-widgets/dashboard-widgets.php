@@ -118,9 +118,14 @@ function dp_toolbox_dashboard_render() {
         echo '</div>';
     }
 
-    // Tutorials — altijd als laatste onderdeel van de widget
+    // Tutorials
     if ( get_option( 'dp_toolbox_dashboard_tutorials', false ) ) {
         dp_toolbox_dashboard_section_tutorials();
+    }
+
+    // Visitekaartje — altijd als allerlaatste onderdeel van de widget
+    if ( get_option( 'dp_toolbox_dashboard_businesscard', true ) ) {
+        dp_toolbox_dashboard_section_businesscard();
     }
 }
 
@@ -533,6 +538,46 @@ function dp_toolbox_dashboard_section_tutorials() {
 }
 
 /* ------------------------------------------------------------------
+ *  Sectie: Visitekaartje Design Pixels (allerlaatste sectie)
+ * ------------------------------------------------------------------ */
+function dp_toolbox_dashboard_section_businesscard() {
+    $company  = 'Design Pixels';
+    $name     = 'Koen Kerkvliet';
+    $email    = 'koen.kerkvliet@designpixels.nl';
+    $phone    = '0645352487';
+    $phone_fmt = '06 45 35 24 87';
+    $website  = 'https://designpixels.nl';
+    $logo     = defined( 'DP_TOOLBOX_URL' ) ? DP_TOOLBOX_URL . 'assets/dp-icon.png' : '';
+    ?>
+    <div class="dp-dash-card">
+        <div class="dp-dash-card-brand">
+            <?php if ( $logo ) : ?>
+                <img src="<?php echo esc_url( $logo ); ?>" alt="<?php echo esc_attr( $company ); ?>" class="dp-dash-card-logo">
+            <?php endif; ?>
+            <div>
+                <div class="dp-dash-card-company"><?php echo esc_html( $company ); ?></div>
+                <div class="dp-dash-card-name"><?php echo esc_html( $name ); ?></div>
+            </div>
+        </div>
+        <div class="dp-dash-card-contact">
+            <a href="mailto:<?php echo esc_attr( $email ); ?>" class="dp-dash-card-link">
+                <span class="dashicons dashicons-email"></span>
+                <?php echo esc_html( $email ); ?>
+            </a>
+            <a href="tel:<?php echo esc_attr( $phone ); ?>" class="dp-dash-card-link">
+                <span class="dashicons dashicons-phone"></span>
+                <?php echo esc_html( $phone_fmt ); ?>
+            </a>
+            <a href="<?php echo esc_url( $website ); ?>" target="_blank" rel="noopener" class="dp-dash-card-link">
+                <span class="dashicons dashicons-admin-site-alt3"></span>
+                designpixels.nl
+            </a>
+        </div>
+    </div>
+    <?php
+}
+
+/* ------------------------------------------------------------------
  *  Sectie: Formulier Inzendingen (Bit Form)
  * ------------------------------------------------------------------ */
 function dp_toolbox_dashboard_section_forms() {
@@ -902,6 +947,53 @@ add_action( 'admin_head-index.php', function () {
         @media (max-width: 960px) {
             .dp-dash-tutorials-grid[data-count="2"],
             .dp-dash-tutorials-grid[data-count="3"] { grid-template-columns: 1fr; }
+        }
+
+        /* ---- Visitekaartje (allerlaatste balk) ---- */
+        .dp-dash-card {
+            background: linear-gradient(135deg, #1a1235 0%, #281E5D 40%, #3d2d7a 100%);
+            color: #fff;
+            padding: 16px 32px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 24px; flex-wrap: wrap;
+        }
+        .dp-dash-card-brand {
+            display: flex; align-items: center; gap: 12px;
+            flex-shrink: 0;
+        }
+        .dp-dash-card-logo {
+            width: 36px; height: 36px; border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            padding: 4px;
+            flex-shrink: 0;
+        }
+        .dp-dash-card-company {
+            font-size: 14px; font-weight: 700; color: #fff;
+            line-height: 1.2;
+        }
+        .dp-dash-card-name {
+            font-size: 12px; color: #c4b5fd;
+            margin-top: 2px;
+        }
+        .dp-dash-card-contact {
+            display: flex; align-items: center; gap: 18px;
+            flex-wrap: wrap;
+        }
+        .dp-dash-card-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: rgba(255,255,255,0.85);
+            font-size: 12px; font-weight: 500;
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .dp-dash-card-link:hover { color: #fff; }
+        .dp-dash-card-link .dashicons {
+            font-size: 14px; width: 14px; height: 14px;
+            color: #c4b5fd;
+        }
+        @media (max-width: 780px) {
+            .dp-dash-card { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .dp-dash-card-contact { gap: 10px 16px; }
         }
 
         /* ---- Buttons ---- */
