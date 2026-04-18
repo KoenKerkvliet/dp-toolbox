@@ -927,10 +927,10 @@ add_action( 'admin_head-index.php', function () {
         }
         .dp-dash-tutorials-grid {
             display: grid; gap: 14px;
+            grid-template-columns: repeat(3, 1fr);
         }
-        .dp-dash-tutorials-grid[data-count="1"] { grid-template-columns: 1fr; }
-        .dp-dash-tutorials-grid[data-count="2"] { grid-template-columns: repeat(2, 1fr); }
-        .dp-dash-tutorials-grid[data-count="3"] { grid-template-columns: repeat(3, 1fr); }
+        .dp-dash-tutorials-grid[data-count="1"] .dp-dash-tutorial { grid-column: span 1; }
+        .dp-dash-tutorials-grid[data-count="2"] .dp-dash-tutorial { grid-column: span 1; }
         .dp-dash-tutorial {
             position: relative;
             aspect-ratio: 16 / 9;
@@ -945,8 +945,7 @@ add_action( 'admin_head-index.php', function () {
             border: 0;
         }
         @media (max-width: 960px) {
-            .dp-dash-tutorials-grid[data-count="2"],
-            .dp-dash-tutorials-grid[data-count="3"] { grid-template-columns: 1fr; }
+            .dp-dash-tutorials-grid { grid-template-columns: 1fr; }
         }
 
         /* ---- Visitekaartje (allerlaatste balk) ---- */
