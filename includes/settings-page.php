@@ -652,5 +652,172 @@ function dp_toolbox_render_admin_tab() {
 
         <?php submit_button( 'Opslaan' ); ?>
     </form>
+
+    <?php
+    /* ------------------------------------------------------------------ */
+    /*  Import / Export sectie                                             */
+    /* ------------------------------------------------------------------ */
+
+    // Flash-meldingen na redirect
+    if ( ! empty( $_GET['ie_imported'] ) ) {
+        echo '<div class="notice notice-success is-dismissible" style="margin:16px 0;"><p>' . esc_html( rawurldecode( wp_unslash( $_GET['ie_imported'] ) ) ) . '</p></div>';
+    }
+    if ( ! empty( $_GET['ie_error'] ) ) {
+        $err_map = [
+            'no_categories' => 'Selecteer minstens één categorie om te exporteren.',
+            'no_file'       => 'Geen bestand geselecteerd.',
+            'read_failed'   => 'Bestand kon niet gelezen worden.',
+            'invalid_json'  => 'Ongeldig JSON-bestand.',
+        ];
+        $raw = rawurldecode( wp_unslash( $_GET['ie_error'] ) );
+        $msg = $err_map[ $raw ] ?? $raw;
+        echo '<div class="notice notice-error is-dismissible" style="margin:16px 0;"><p>' . esc_html( $msg ) . '</p></div>';
+    }
+
+    $ie_categories = dp_toolbox_ie_get_categories();
+    ?>
+
+    <style>
+        .dp-ie-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 28px;
+        }
+        .dp-ie-card {
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 22px 24px;
+        }
+        .dp-ie-card h3 {
+            margin: 0 0 6px; font-size: 15px; font-weight: 700; color: #1d2327;
+            display: flex; align-items: center; gap: 8px;
+            padding-bottom: 10px; border-bottom: 2px solid #281E5D;
+        }
+        .dp-ie-card h3 .dashicons { color: #281E5D; font-size: 18px; width: 18px; height: 18px; }
+        .dp-ie-card .desc { margin: 10px 0 16px; color: #666; font-size: 13px; line-height: 1.5; }
+        .dp-ie-cats { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+        .dp-ie-cat {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 10px 12px; background: #f9f8fc;
+            border: 1px solid #efecf6; border-radius: 6px;
+            cursor: pointer; transition: border-color 0.15s;
+        }
+        .dp-ie-cat:hover { border-color: #c4b5fd; }
+        .dp-ie-cat input { margin-top: 2px; flex-shrink: 0; }
+        .dp-ie-cat-label { font-size: 13px; font-weight: 600; color: #1d2327; }
+        .dp-ie-cat-desc { font-size: 11px; color: #888; margin-top: 2px; line-height: 1.4; }
+        .dp-ie-actions {
+            display: flex; gap: 10px; align-items: center; margin-top: 16px;
+            padding-top: 14px; border-top: 1px solid #efecf6;
+        }
+        .dp-ie-btn {
+            background: #281E5D; color: #fff; border: none; border-radius: 6px;
+            padding: 9px 22px; font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: background 0.15s;
+        }
+        .dp-ie-btn:hover { background: #4a3a8a; }
+        .dp-ie-btn-secondary {
+            background: #fff; color: #281E5D; border: 1px solid #ddd;
+            padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
+            cursor: pointer; transition: border-color 0.15s;
+        }
+        .dp-ie-btn-secondary:hover { border-color: #281E5D; }
+        .dp-ie-file-input {
+            display: block; margin-bottom: 14px;
+            padding: 8px; background: #f9f8fc; border: 1px dashed #d0c8e0;
+            border-radius: 6px; font-size: 13px; width: 100%;
+        }
+        .dp-ie-warning {
+            background: #fef9ee; border: 1px solid #f0e0b8; border-radius: 6px;
+            padding: 10px 14px; font-size: 12px; color: #78350f; line-height: 1.5;
+            margin-top: 12px;
+        }
+        .dp-ie-warning strong { color: #92400e; }
+        @media (max-width: 900px) {
+            .dp-ie-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+
+    <div class="dp-admin-section" style="margin-top: 32px;">
+        <h2>Import / Export</h2>
+        <p class="desc">Exporteer je instellingen naar een JSON-bestand, of importeer een export om een nieuwe site snel op te zetten.</p>
+
+        <div class="dp-ie-grid">
+
+            <!-- EXPORT -->
+            <div class="dp-ie-card">
+                <h3><span class="dashicons dashicons-download"></span> Exporteren</h3>
+                <p class="desc">Kies welke categorieën je wilt opnemen in het export-bestand.</p>
+
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                    <input type="hidden" name="action" value="dp_toolbox_ie_export">
+                    <?php wp_nonce_field( 'dp_toolbox_ie_export' ); ?>
+
+                    <div class="dp-ie-cats">
+                        <?php foreach ( $ie_categories as $key => $cat ) : ?>
+                            <label class="dp-ie-cat">
+                                <input type="checkbox" name="categories[]" value="<?php echo esc_attr( $key ); ?>" checked>
+                                <div>
+                                    <div class="dp-ie-cat-label"><?php echo esc_html( $cat['label'] ); ?></div>
+                                    <div class="dp-ie-cat-desc"><?php echo esc_html( $cat['desc'] ); ?></div>
+                                </div>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <div class="dp-ie-actions">
+                        <button type="submit" class="dp-ie-btn">
+                            <span class="dashicons dashicons-download" style="vertical-align:text-top;font-size:14px;width:14px;height:14px;"></span>
+                            Download export
+                        </button>
+                        <button type="button" class="dp-ie-btn-secondary" onclick="dpIeToggleAll(this.form, true)">Alles selecteren</button>
+                        <button type="button" class="dp-ie-btn-secondary" onclick="dpIeToggleAll(this.form, false)">Niets selecteren</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- IMPORT -->
+            <div class="dp-ie-card">
+                <h3><span class="dashicons dashicons-upload"></span> Importeren</h3>
+                <p class="desc">Upload een DP Toolbox export-bestand. Bestaande instellingen worden overschreven voor de gekozen categorieën.</p>
+
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="dp_toolbox_ie_import">
+                    <?php wp_nonce_field( 'dp_toolbox_ie_import' ); ?>
+
+                    <input type="file" name="import_file" accept="application/json,.json" class="dp-ie-file-input" required>
+
+                    <div class="dp-ie-cats">
+                        <?php foreach ( $ie_categories as $key => $cat ) : ?>
+                            <label class="dp-ie-cat">
+                                <input type="checkbox" name="categories[]" value="<?php echo esc_attr( $key ); ?>" checked>
+                                <div>
+                                    <div class="dp-ie-cat-label"><?php echo esc_html( $cat['label'] ); ?></div>
+                                    <div class="dp-ie-cat-desc">Alleen importeren als aangevinkt.</div>
+                                </div>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <div class="dp-ie-warning">
+                        <strong>Let op:</strong> deze actie overschrijft bestaande instellingen voor de gekozen categorieën. Wachtwoorden (SMTP), API-keys, redirects en per-user rules worden nooit geïmporteerd — die blijven site-specifiek.
+                    </div>
+
+                    <div class="dp-ie-actions">
+                        <button type="submit" class="dp-ie-btn">
+                            <span class="dashicons dashicons-upload" style="vertical-align:text-top;font-size:14px;width:14px;height:14px;"></span>
+                            Importeren
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+    function dpIeToggleAll(form, checked) {
+        form.querySelectorAll('input[type="checkbox"][name="categories[]"]').forEach(function(cb) {
+            cb.checked = checked;
+        });
+    }
+    </script>
     <?php
 }
