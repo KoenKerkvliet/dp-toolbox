@@ -20,3 +20,7 @@ Thumbs.db
 .dep_admin_v*
 .refactor_plan*
 .tmp_*
+
+# Python
+__pycache__/
+*.pyc
