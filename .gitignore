@@ -13,3 +13,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Tijdelijke deploy/refactor-artefacten van Claude-sessies
+.b64_*
+.deploy_*
+.dep_admin_v*
+.refactor_plan*
+.tmp_*

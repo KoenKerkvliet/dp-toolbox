@@ -72,7 +72,7 @@ add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
     $wp_admin_bar->add_node( [
         'id'    => 'dp-maintenance-notice',
         'title' => '&#128295; Onderhoudsmodus actief',
-        'href'  => admin_url( 'admin.php?page=dp-toolbox-maintenance' ),
+        'href'  => admin_url( 'admin.php?page=dp-toolbox#settings-maintenance-mode' ),
         'meta'  => [ 'class' => 'dp-maintenance-bar-notice' ],
     ] );
 }, 999 );

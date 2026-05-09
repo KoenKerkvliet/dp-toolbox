@@ -24,21 +24,21 @@ add_action( 'admin_init', function () {
     ] );
 } );
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Disable Features',
-        'Disable Features',
-        'manage_options',
-        'dp-toolbox-disable-features',
-        'dp_toolbox_df_admin_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'disable-features', 'dp_toolbox_df_admin_render_inline', [
+            'title'       => 'Disable Features',
+            'description' => 'Schakel WordPress-functies uit die je niet nodig hebt.',
+        ] );
+    }
 } );
 
-function dp_toolbox_df_admin_page() {
+function dp_toolbox_df_admin_render_inline() {
     $features = dp_toolbox_df_get_features();
     $disabled = dp_toolbox_df_get_disabled();
-    dp_toolbox_page_start( 'Disable Features', 'Schakel WordPress-functies uit die je niet nodig hebt.' );
     ?>
     <style>
         .dp-df-category { margin-bottom: 24px; }
@@ -142,5 +142,4 @@ function dp_toolbox_df_admin_page() {
         <?php submit_button( 'Opslaan' ); ?>
     </form>
     <?php
-    dp_toolbox_page_end();
 }

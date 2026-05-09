@@ -7,15 +7,16 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Menu Sorter',
-        'Menu Sorter',
-        'manage_options',
-        'dp-toolbox-menu-sorter',
-        'dp_toolbox_menu_sorter_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'menu-sorter', 'dp_toolbox_menu_sorter_render_inline', [
+            'title'       => 'Menu Sorter',
+            'description' => 'Sleep menu-items naar de gewenste positie.',
+        ] );
+    }
 } );
 
 add_action( 'admin_enqueue_scripts', function ( $hook ) {
@@ -23,12 +24,10 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
     wp_enqueue_script( 'jquery-ui-sortable' );
 } );
 
-function dp_toolbox_menu_sorter_page() {
+function dp_toolbox_menu_sorter_render_inline() {
     $items       = get_transient( 'dp_toolbox_admin_menu_items' );
     $saved_order = get_option( 'dp_toolbox_menu_order', [] );
     $nonce       = wp_create_nonce( 'dp_toolbox_menu_sorter' );
-    dp_toolbox_page_start( 'Menu Sorter', 'Sleep menu-items naar de gewenste positie.' );
-
     // Sort items by saved order if available
     if ( ! empty( $saved_order ) && ! empty( $items ) ) {
         $slug_map = [];
@@ -284,5 +283,4 @@ function dp_toolbox_menu_sorter_page() {
     });
     </script>
     <?php
-    dp_toolbox_page_end();
 }

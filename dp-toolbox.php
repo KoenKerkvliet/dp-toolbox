@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DP Toolbox
  * Description: Design Pixels gereedschapskist — modulaire verzameling van site-tools.
- * Version: 2.9.0
+ * Version: 2.19.1
  * Author: Design Pixels
  * Text Domain: dp-toolbox
  * GitHub Plugin URI: KoenKerkvliet/dp-toolbox
@@ -13,9 +13,42 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DP_TOOLBOX_VERSION', '2.9.0' );
+define( 'DP_TOOLBOX_VERSION', '2.19.1' );
 define( 'DP_TOOLBOX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DP_TOOLBOX_URL', plugin_dir_url( __FILE__ ) );
+
+/* ------------------------------------------------------------------ */
+/*  DP-user check (plugin-wide)                                        */
+/*  Users met @designpixels.nl e-mail zien de plugin in admin.         */
+/*  Andere admins zien noch de plugin-regel in wp-admin/plugins.php    */
+/*  noch het DP Toolbox menu — modules blijven wel actief functioneren.*/
+/* ------------------------------------------------------------------ */
+function dp_toolbox_is_dp_user( $user_id = null ) {
+    if ( null === $user_id ) {
+        $user_id = get_current_user_id();
+    }
+    if ( ! $user_id ) {
+        return apply_filters( 'dp_toolbox_is_dp_user', false, $user_id );
+    }
+
+    $user  = get_userdata( $user_id );
+    $is_dp = $user && ! empty( $user->user_email )
+        && str_ends_with( strtolower( trim( $user->user_email ) ), '@designpixels.nl' );
+
+    return apply_filters( 'dp_toolbox_is_dp_user', $is_dp, $user_id );
+}
+
+/**
+ * Verberg de DP Toolbox plugin-regel in wp-admin/plugins.php voor niet-DP-users.
+ * Priority 5 — vóór User Manager's per-user filter (110).
+ */
+add_filter( 'all_plugins', function ( $plugins ) {
+    if ( dp_toolbox_is_dp_user() ) {
+        return $plugins;
+    }
+    unset( $plugins['dp-toolbox/dp-toolbox.php'] );
+    return $plugins;
+}, 5 );
 
 /**
  * Get metadata from a module's main file header.
@@ -145,10 +178,11 @@ function dp_toolbox_get_module_notices() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Noindex indicator in admin bar                                     */
+/*  Noindex indicator in admin bar — alleen voor DP-users              */
 /* ------------------------------------------------------------------ */
 
 add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
+    if ( ! dp_toolbox_is_dp_user() ) return;
     if ( '0' === get_option( 'blog_public' ) ) {
         $wp_admin_bar->add_node( [
             'id'    => 'dp-toolbox-noindex',
@@ -166,11 +200,24 @@ add_action( 'admin_head', 'dp_toolbox_noindex_bar_css' );
 add_action( 'wp_head', 'dp_toolbox_noindex_bar_css' );
 
 function dp_toolbox_noindex_bar_css() {
+    if ( ! dp_toolbox_is_dp_user() ) return;
     if ( '0' !== get_option( 'blog_public' ) ) return;
     echo '<style>#wpadminbar #wp-admin-bar-dp-toolbox-noindex > .ab-item { background: #d63638 !important; color: #fff !important; font-weight: 700 !important; letter-spacing: 0.5px; }</style>';
 }
 
+/* ------------------------------------------------------------------ */
+/*  Verberg Novamira-plugin admin-bar indicator voor niet-DP-users.    */
+/*  De Novamira-plugin (3rd party MCP) toont een rode "Novamira ON"    */
+/*  badge — alleen relevant voor DP. Late hook + remove_node, zodat    */
+/*  we de upstream plugin niet hoeven te patchen.                      */
+/* ------------------------------------------------------------------ */
+add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
+    if ( dp_toolbox_is_dp_user() ) return;
+    $wp_admin_bar->remove_node( 'novamira-mcp-status' );
+}, PHP_INT_MAX );
+
 /* Shared admin UI + Settings page — always loaded */
 require_once DP_TOOLBOX_PATH . 'includes/admin-ui.php';
+require_once DP_TOOLBOX_PATH . 'includes/checklist.php';
 require_once DP_TOOLBOX_PATH . 'includes/settings-page.php';
 require_once DP_TOOLBOX_PATH . 'includes/import-export.php';

@@ -92,22 +92,23 @@ function dp_toolbox_pi_find_by_slug( $slug ) {
 /*  Admin menu                                                         */
 /* ------------------------------------------------------------------ */
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Plugin Installer',
-        'Plugin Installer',
-        'install_plugins',
-        'dp-toolbox-plugin-installer',
-        'dp_toolbox_pi_render_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'plugin-installer', 'dp_toolbox_pi_render_render_inline', [
+            'title'       => 'Plugin Installer',
+            'description' => 'Installeer aanbevolen plugins in twee stappen: eerst downloaden, dan activeren.',
+        ] );
+    }
 } );
 
 /* ------------------------------------------------------------------ */
 /*  Render page                                                        */
 /* ------------------------------------------------------------------ */
 
-function dp_toolbox_pi_render_page() {
+function dp_toolbox_pi_render_render_inline() {
     if ( ! current_user_can( 'install_plugins' ) ) {
         wp_die( 'Je hebt geen toegang tot deze pagina.' );
     }
@@ -123,11 +124,6 @@ function dp_toolbox_pi_render_page() {
     }
 
     $nonce = wp_create_nonce( 'dp_toolbox_plugin_installer' );
-
-    dp_toolbox_page_start(
-        'Plugin Installer',
-        'Installeer aanbevolen plugins in twee stappen: eerst downloaden, dan activeren.'
-    );
     ?>
 
     <style>
@@ -427,7 +423,6 @@ function dp_toolbox_pi_render_page() {
     </script>
 
     <?php
-    dp_toolbox_page_end();
 }
 
 /* ------------------------------------------------------------------ */

@@ -11,22 +11,21 @@ add_action( 'admin_init', function () {
     ] );
 } );
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Security Headers',
-        'Security Headers',
-        'manage_options',
-        'dp-toolbox-security-headers',
-        'dp_toolbox_sh_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'security-headers', 'dp_toolbox_sh_render_inline', [
+            'title'       => 'Security Headers',
+            'description' => 'Voeg HTTP-beveiligingsheaders toe om je site beter te beschermen.',
+        ] );
+    }
 } );
 
-function dp_toolbox_sh_page() {
+function dp_toolbox_sh_render_inline() {
     $headers = dp_toolbox_sh_get_available_headers();
     $enabled = dp_toolbox_sh_get_enabled();
-
-    dp_toolbox_page_start( 'Security Headers', 'Voeg HTTP-beveiligingsheaders toe om je site beter te beschermen.' );
     ?>
     <style>
         .dp-sh-card {
@@ -77,5 +76,4 @@ function dp_toolbox_sh_page() {
         <?php submit_button( 'Opslaan' ); ?>
     </form>
     <?php
-    dp_toolbox_page_end();
 }

@@ -2,7 +2,7 @@
 /**
  * Module Name: Disable Features
  * Description: Schakel onnodige WordPress-functies uit via een overzichtelijk paneel.
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -63,6 +63,18 @@ function dp_toolbox_df_get_features() {
                 'frontend_admin_bar'  => [
                     'label' => 'Admin bar op frontend',
                     'desc'  => 'Verbergt de admin bar op de frontend voor alle gebruikers.',
+                ],
+                'admin_bar_customize' => [
+                    'label' => 'Customizer in admin bar',
+                    'desc'  => 'Verbergt de "Aanpassen" link in de admin bar (op de frontend).',
+                ],
+                'admin_bar_updates'   => [
+                    'label' => 'Updates indicator in admin bar',
+                    'desc'  => 'Verbergt het updates-icoon (gebogen pijl met aantal updates) in de admin bar.',
+                ],
+                'admin_bar_iawp_views' => [
+                    'label' => 'Weergaven (Independent Analytics) in admin bar',
+                    'desc'  => 'Verbergt de "X Views" stat van Independent Analytics in de admin bar.',
                 ],
             ],
         ],
@@ -191,6 +203,24 @@ add_action( 'init', function () {
 
     if ( dp_toolbox_df_is_disabled( 'frontend_admin_bar' ) ) {
         add_filter( 'show_admin_bar', '__return_false' );
+    }
+
+    if ( dp_toolbox_df_is_disabled( 'admin_bar_customize' ) ) {
+        add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
+            $wp_admin_bar->remove_node( 'customize' );
+        }, 999 );
+    }
+
+    if ( dp_toolbox_df_is_disabled( 'admin_bar_updates' ) ) {
+        add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
+            $wp_admin_bar->remove_node( 'updates' );
+        }, 999 );
+    }
+
+    if ( dp_toolbox_df_is_disabled( 'admin_bar_iawp_views' ) ) {
+        add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
+            $wp_admin_bar->remove_node( 'iawp_admin_bar' );
+        }, 999 );
     }
 
     /* --- Security --- */

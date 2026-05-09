@@ -1,18 +1,19 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Thumbnails Manager',
-        'Thumbnails Manager',
-        'manage_options',
-        'dp-toolbox-thumbnails',
-        'dp_toolbox_thumbnails_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'thumbnails-manager', 'dp_toolbox_thumbnails_render_inline', [
+            'title'       => 'Thumbnails Manager',
+            'description' => 'Bekijk geregistreerde thumbnail-formaten en regenereer thumbnails.',
+        ] );
+    }
 } );
 
-function dp_toolbox_thumbnails_page() {
+function dp_toolbox_thumbnails_render_inline() {
     $sizes    = dp_toolbox_tm_get_all_sizes();
     $nonce    = wp_create_nonce( 'dp_toolbox_thumbnails' );
     $ajax_url = admin_url( 'admin-ajax.php' );
@@ -21,8 +22,6 @@ function dp_toolbox_thumbnails_page() {
     $total_images = (int) $wpdb->get_var(
         "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_mime_type LIKE 'image/%'"
     );
-
-    dp_toolbox_page_start( 'Thumbnails Manager', 'Bekijk geregistreerde thumbnail-formaten en regenereer thumbnails.' );
     ?>
     <style>
         .dp-tm-stats { display: flex; gap: 12px; margin-bottom: 20px; }
@@ -266,5 +265,4 @@ function dp_toolbox_thumbnails_page() {
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

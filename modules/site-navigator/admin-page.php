@@ -21,24 +21,23 @@ add_action( 'admin_init', function () {
     ] );
 } );
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Site Navigator',
-        'Site Navigator',
-        'manage_options',
-        'dp-toolbox-site-navigator',
-        'dp_toolbox_site_nav_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'site-navigator', 'dp_toolbox_site_nav_render_inline', [
+            'title'       => 'Site Navigator',
+            'description' => 'Snelnavigatie via de admin bar voor Bricks Builder.',
+        ] );
+    }
 } );
 
-function dp_toolbox_site_nav_page() {
+function dp_toolbox_site_nav_render_inline() {
     $show_admin_bar = get_option( 'dp_toolbox_site_nav_show_admin_bar_in_editor', false );
     $show_bricks    = get_option( 'dp_toolbox_site_nav_show_bricks_settings', true );
     $show_plugins   = get_option( 'dp_toolbox_site_nav_show_plugin_settings', true );
     $bricks_active  = dp_toolbox_site_nav_is_bricks_active();
-
-    dp_toolbox_page_start( 'Site Navigator', 'Snelnavigatie via de admin bar voor Bricks Builder.' );
     ?>
     <style>
         .dp-sn-cards { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
@@ -126,5 +125,4 @@ function dp_toolbox_site_nav_page() {
         <button type="submit" class="dp-sn-btn">Opslaan</button>
     </form>
     <?php
-    dp_toolbox_page_end();
 }

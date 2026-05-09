@@ -10,21 +10,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /* ------------------------------------------------------------------
- *  Superadmin whitelist (hardcoded)
+ *  Superadmin whitelist
+ *  Delegate naar dp_toolbox_is_dp_user() (gedefinieerd in dp-toolbox.php)
+ *  zodat er één bron van waarheid is voor "is dit een DP-user".
  *  Users met @designpixels.nl e-mailadres zijn altijd immuun voor
  *  hide-rules en kunnen nooit via de UI geblokkeerd worden.
  * ------------------------------------------------------------------ */
 function dp_toolbox_um_is_superadmin( $user_id = null ) {
-    if ( null === $user_id ) {
-        $user_id = get_current_user_id();
-    }
-    if ( ! $user_id ) return false;
-
-    $user = get_userdata( $user_id );
-    if ( ! $user || empty( $user->user_email ) ) return false;
-
-    $email = strtolower( trim( $user->user_email ) );
-    return str_ends_with( $email, '@designpixels.nl' );
+    return dp_toolbox_is_dp_user( $user_id );
 }
 
 /* ------------------------------------------------------------------

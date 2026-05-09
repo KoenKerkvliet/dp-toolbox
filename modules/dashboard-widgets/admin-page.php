@@ -22,6 +22,9 @@ add_action( 'admin_init', function () {
     register_setting( $group, 'dp_toolbox_dashboard_analytics', [
         'type' => 'boolean', 'sanitize_callback' => function ( $v ) { return (bool) $v; }, 'default' => true,
     ] );
+    register_setting( $group, 'dp_toolbox_dashboard_analytics_lists', [
+        'type' => 'boolean', 'sanitize_callback' => function ( $v ) { return (bool) $v; }, 'default' => false,
+    ] );
     register_setting( $group, 'dp_toolbox_dashboard_hide_defaults', [
         'type' => 'boolean', 'sanitize_callback' => function ( $v ) { return (bool) $v; }, 'default' => true,
     ] );
@@ -37,6 +40,11 @@ add_action( 'admin_init', function () {
     register_setting( $group, 'dp_toolbox_dashboard_businesscard', [
         'type' => 'boolean', 'sanitize_callback' => function ( $v ) { return (bool) $v; }, 'default' => true,
     ] );
+    // Review-kaart (master switch — verschijnt op elke site na update)
+    register_setting( $group, 'dp_toolbox_dashboard_review', [
+        'type' => 'boolean', 'sanitize_callback' => function ( $v ) { return (bool) $v; }, 'default' => true,
+    ] );
+    // (Per-user review-given state leeft in user_meta dp_toolbox_review_given — geen site-option meer.)
     register_setting( $group, 'dp_toolbox_dashboard_tutorial_urls', [
         'type'              => 'array',
         'sanitize_callback' => function ( $input ) {
@@ -54,20 +62,22 @@ add_action( 'admin_init', function () {
     ] );
 } );
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Dashboard Widgets',
-        'Dashboard Widgets',
-        'manage_options',
-        'dp-toolbox-dashboard-widgets',
-        'dp_toolbox_dashboard_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'dashboard-widgets', 'dp_toolbox_dashboard_render_inline', [
+            'title'       => 'Dashboard Widgets',
+            'description' => 'Beheer welke widgets op het WordPress-dashboard worden getoond.',
+        ] );
+    }
 } );
 
-function dp_toolbox_dashboard_page() {
-    $welkom       = get_option( 'dp_toolbox_dashboard_welkom', true );
-    $analytics    = get_option( 'dp_toolbox_dashboard_analytics', true );
+function dp_toolbox_dashboard_render_inline() {
+    $welkom            = get_option( 'dp_toolbox_dashboard_welkom', true );
+    $analytics         = get_option( 'dp_toolbox_dashboard_analytics', true );
+    $analytics_lists   = get_option( 'dp_toolbox_dashboard_analytics_lists', false );
     $forms        = get_option( 'dp_toolbox_dashboard_forms', true );
     $converter    = get_option( 'dp_toolbox_dashboard_converter', true );
     $punch_card   = get_option( 'dp_toolbox_dashboard_punch_card', false );
@@ -77,10 +87,9 @@ function dp_toolbox_dashboard_page() {
     $tut_urls     = (array) get_option( 'dp_toolbox_dashboard_tutorial_urls', [] );
     $tut_urls     = array_pad( $tut_urls, 3, '' );
     $businesscard = get_option( 'dp_toolbox_dashboard_businesscard', true );
+    $review       = get_option( 'dp_toolbox_dashboard_review', true );
     $ia_available = function_exists( 'dp_toolbox_dashboard_ia_available' ) && dp_toolbox_dashboard_ia_available();
-    $pi_url       = admin_url( 'admin.php?page=dp-toolbox-plugin-installer' );
-
-    dp_toolbox_page_start( 'Dashboard Widgets', 'Beheer welke widgets op het WordPress-dashboard worden getoond.' );
+    $pi_url       = admin_url( 'admin.php?page=dp-toolbox#settings-plugin-installer' );
     ?>
     <style>
         .dp-dw-cards { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
@@ -128,6 +137,19 @@ function dp_toolbox_dashboard_page() {
             cursor: pointer; transition: background 0.2s;
         }
         .dp-dw-btn:hover { background: #4a3a8a; }
+
+        /* Review status per user */
+        .dp-dw-user-role {
+            display: inline-block; margin-left: 8px;
+            padding: 2px 8px; background: #f5f3fb; color: #281E5D;
+            font-size: 10px; font-weight: 600;
+            border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+            vertical-align: middle;
+        }
+        #dp-dw-review-users { gap: 8px; margin-top: 0; }
+        .dp-dw-review-user-card { padding: 12px 18px; }
+        .dp-dw-review-user-card .dp-dw-title { font-size: 13px; }
+        .dp-dw-review-user-card .dp-dw-desc { font-size: 11px; }
     </style>
 
     <form method="post" action="options.php">
@@ -142,26 +164,35 @@ function dp_toolbox_dashboard_page() {
             <?php
             $widgets = [
                 [ 'id' => 'welkom',     'name' => 'dp_toolbox_dashboard_welkom',     'val' => $welkom,     'title' => 'Welkom',            'desc' => 'Persoonlijke begroeting met berichten- en paginateller.' ],
-                [ 'id' => 'analytics',  'name' => 'dp_toolbox_dashboard_analytics',  'val' => $analytics,  'title' => 'Analytics',         'desc' => 'Bezoekers, pageviews, top pagina\'s en referrers van de laatste 7 dagen (via Independent Analytics).', 'requires_ia' => true ],
+                [ 'id' => 'analytics',  'name' => 'dp_toolbox_dashboard_analytics',  'val' => $analytics,  'title' => 'Analytics',         'desc' => 'Bezoekers, pageviews en grafiek van de laatste 7 dagen (via Independent Analytics).', 'requires_ia' => true ],
+                [ 'id' => 'analytics_lists', 'name' => 'dp_toolbox_dashboard_analytics_lists', 'val' => $analytics_lists, 'title' => 'Analytics — top lijsten', 'desc' => 'Toon onderaan ook de top pagina\'s en top referrers van de laatste 7 dagen.', 'requires_analytics' => true ],
                 [ 'id' => 'forms',      'name' => 'dp_toolbox_dashboard_forms',      'val' => $forms,      'title' => 'Inzendingen',       'desc' => 'Recente formulier-inzendingen via Bit Form.' ],
                 [ 'id' => 'converter',  'name' => 'dp_toolbox_dashboard_converter',  'val' => $converter,  'title' => 'Image Converter',   'desc' => 'Promotie voor de gratis tool convert.designpixels.nl.' ],
                 [ 'id' => 'tutorials',  'name' => 'dp_toolbox_dashboard_tutorials',  'val' => $tutorials,  'title' => 'Tutorials',         'desc' => 'Toon 1 tot 3 YouTube tutorial-video\'s onderaan de welkom-widget.' ],
                 [ 'id' => 'punch_card', 'name' => 'dp_toolbox_dashboard_punch_card', 'val' => $punch_card, 'title' => 'Strippen',          'desc' => 'Toon het aantal beschikbare strippen via de API.' ],
+                [ 'id' => 'review',     'name' => 'dp_toolbox_dashboard_review',     'val' => $review,     'title' => 'Review aanvragen',  'desc' => 'Vraag elke gebruiker om een review op feedback.designpixels.nl. Per user te verbergen in de "Review status per user" sectie hieronder.' ],
                 [ 'id' => 'businesscard','name'=> 'dp_toolbox_dashboard_businesscard','val'=> $businesscard,'title'=> 'Visitekaartje',      'desc' => 'Toon een klein Design Pixels visitekaartje onderaan het dashboard.' ],
             ];
 
             foreach ( $widgets as $w ) :
-                $is_disabled = ! empty( $w['requires_ia'] ) && ! $ia_available;
-                $card_cls    = 'dp-dw-card' . ( $is_disabled ? ' is-disabled' : '' );
+                $needs_ia        = ! empty( $w['requires_ia'] ) && ! $ia_available;
+                $needs_analytics = ! empty( $w['requires_analytics'] ) && ( ! $analytics || ! $ia_available );
+                $is_disabled     = $needs_ia || $needs_analytics;
+                $card_cls        = 'dp-dw-card' . ( $is_disabled ? ' is-disabled' : '' );
             ?>
                 <div class="<?php echo esc_attr( $card_cls ); ?>">
                     <div class="dp-dw-info">
                         <div class="dp-dw-title"><?php echo esc_html( $w['title'] ); ?></div>
                         <div class="dp-dw-desc"><?php echo esc_html( $w['desc'] ); ?></div>
-                        <?php if ( $is_disabled ) : ?>
+                        <?php if ( $needs_ia ) : ?>
                             <div class="dp-dw-hint">
                                 <span class="dashicons dashicons-info"></span>
                                 Activeer eerst <a href="<?php echo esc_url( $pi_url ); ?>">Independent Analytics</a>.
+                            </div>
+                        <?php elseif ( $needs_analytics ) : ?>
+                            <div class="dp-dw-hint">
+                                <span class="dashicons dashicons-info"></span>
+                                Activeer eerst de Analytics widget hierboven.
                             </div>
                         <?php endif; ?>
                     </div>
@@ -208,6 +239,62 @@ function dp_toolbox_dashboard_page() {
             <div class="dp-dw-api-help">De API-key vind je in je klantportaal. De data wordt 15 minuten gecachet.</div>
         </div>
 
+        <!-- Sectie: Review status per user -->
+        <?php
+        $review_users = get_users( [
+            'role__in' => [ 'administrator', 'editor', 'author', 'contributor' ],
+            'orderby'  => 'display_name',
+            'order'    => 'ASC',
+        ] );
+        $user_toggle_nonce = wp_create_nonce( 'dp_toolbox_review_user_toggle' );
+        ?>
+        <div id="dp-dw-review-section" class="dp-dw-api-section" style="<?php echo $review ? '' : 'display:none'; ?>">
+            <div class="dp-dw-section" style="margin-top:0; border-bottom: none; padding-bottom: 4px;">
+                <span class="dashicons dashicons-star-filled"></span> Review status per user
+            </div>
+            <p class="dp-dw-api-help" style="margin-top:0; margin-bottom:12px;">
+                De review-kaart is per gebruiker. Vink aan zodra een user heeft gereviewd — de kaart verdwijnt op zijn/haar dashboard. Wijzigingen worden direct opgeslagen.
+            </p>
+
+            <?php if ( empty( $review_users ) ) : ?>
+                <div class="dp-dw-api-help">Geen gebruikers gevonden met dashboard-toegang (administrator, editor, author of contributor).</div>
+            <?php else : ?>
+                <div class="dp-dw-cards" id="dp-dw-review-users" data-nonce="<?php echo esc_attr( $user_toggle_nonce ); ?>" style="margin-top:0;">
+                    <?php foreach ( $review_users as $u ) :
+                        $given     = (bool) get_user_meta( $u->ID, 'dp_toolbox_review_given', true );
+                        $role_slug = ! empty( $u->roles[0] ) ? $u->roles[0] : '';
+                        $role_name = '';
+                        if ( $role_slug ) {
+                            $wp_role   = wp_roles()->roles[ $role_slug ] ?? null;
+                            $raw_label = $wp_role['name'] ?? $role_slug;
+                            $role_name = function_exists( 'translate_user_role' ) ? translate_user_role( $raw_label ) : $raw_label;
+                        }
+                    ?>
+                        <div class="dp-dw-card dp-dw-review-user-card">
+                            <div class="dp-dw-info">
+                                <div class="dp-dw-title">
+                                    <?php echo esc_html( $u->display_name ); ?>
+                                    <?php if ( $role_name ) : ?>
+                                        <span class="dp-dw-user-role"><?php echo esc_html( $role_name ); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="dp-dw-desc"><?php echo esc_html( $u->user_email ); ?></div>
+                            </div>
+                            <div class="dp-dw-toggle">
+                                <input type="checkbox"
+                                       id="dp-dw-review-user-<?php echo (int) $u->ID; ?>"
+                                       class="dp-dw-review-user-toggle"
+                                       data-user-id="<?php echo (int) $u->ID; ?>"
+                                       value="1"
+                                       <?php checked( $given ); ?>>
+                                <label for="dp-dw-review-user-<?php echo (int) $u->ID; ?>"></label>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
         <!-- Sectie 4: Tutorials URL's -->
         <div id="dp-dw-tutorials-section" class="dp-dw-api-section" style="<?php echo $tutorials ? '' : 'display:none'; ?>">
             <div class="dp-dw-section" style="margin-top:0; border-bottom: none; padding-bottom: 4px;">
@@ -244,8 +331,36 @@ function dp_toolbox_dashboard_page() {
         }
         toggle('dp-dw-punch_card', 'dp-dw-api-section');
         toggle('dp-dw-tutorials',  'dp-dw-tutorials-section');
+        toggle('dp-dw-review',     'dp-dw-review-section');
+
+        // Live AJAX-toggle voor de per-user review-status.
+        var usersRoot = document.getElementById('dp-dw-review-users');
+        if (usersRoot) {
+            var nonce = usersRoot.dataset.nonce;
+            usersRoot.querySelectorAll('.dp-dw-review-user-toggle').forEach(function (cb) {
+                cb.addEventListener('change', function () {
+                    var uid   = cb.dataset.userId;
+                    var given = cb.checked;
+                    cb.disabled = true;
+                    var fd = new FormData();
+                    fd.append('action', 'dp_toolbox_dashboard_review_user_toggle');
+                    fd.append('_wpnonce', nonce);
+                    fd.append('user_id', uid);
+                    fd.append('given', given ? '1' : '0');
+                    fetch(window.ajaxurl, { method: 'POST', body: fd, credentials: 'same-origin' })
+                        .then(function (r) { return r.json(); })
+                        .then(function (json) {
+                            if (!json || !json.success) {
+                                cb.checked = !given;
+                                alert('Wijzigen mislukt.');
+                            }
+                        })
+                        .catch(function () { cb.checked = !given; alert('Netwerkfout.'); })
+                        .finally(function () { cb.disabled = false; });
+                });
+            });
+        }
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

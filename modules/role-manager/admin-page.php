@@ -4,15 +4,16 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 /* ------------------------------------------------------------------
  *  Menu registratie
  * ------------------------------------------------------------------ */
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Role Manager',
-        'Role Manager',
-        'manage_options',
-        'dp-toolbox-role-manager',
-        'dp_toolbox_rm_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'role-manager', 'dp_toolbox_rm_render_inline', [
+            'title'       => 'Role Manager',
+            'description' => 'Beheer welke menu-items en plugins zichtbaar zijn per gebruikersrol.',
+        ] );
+    }
 } );
 
 /* ------------------------------------------------------------------
@@ -61,9 +62,76 @@ add_action( 'wp_ajax_dp_toolbox_rm_save_plugins', function () {
 } );
 
 /* ------------------------------------------------------------------
+ *  AJAX: nieuwe rol aanmaken
+ * ------------------------------------------------------------------ */
+add_action( 'wp_ajax_dp_toolbox_rm_add_role', function () {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( 'Geen toegang' );
+    }
+    check_ajax_referer( 'dp_toolbox_role_manager', 'nonce' );
+
+    $slug = strtolower( trim( $_POST['slug'] ?? '' ) );
+    $slug = preg_replace( '/[^a-z0-9_]/', '', $slug );
+    $slug = substr( $slug, 0, 32 );
+    $name = sanitize_text_field( $_POST['name'] ?? '' );
+    $clone_from = sanitize_key( $_POST['clone_from'] ?? 'subscriber' );
+
+    if ( $slug === '' ) {
+        wp_send_json_error( 'Slug mag niet leeg zijn (alleen a-z, 0-9, underscore).' );
+    }
+    if ( $name === '' ) {
+        wp_send_json_error( 'Naam mag niet leeg zijn.' );
+    }
+    if ( get_role( $slug ) ) {
+        wp_send_json_error( 'Een rol met deze slug bestaat al.' );
+    }
+    if ( in_array( $slug, [ 'administrator', 'editor', 'author', 'contributor', 'subscriber' ], true ) ) {
+        wp_send_json_error( 'Deze slug is gereserveerd voor WordPress.' );
+    }
+
+    $base = get_role( $clone_from );
+    $caps = $base ? $base->capabilities : [ 'read' => true ];
+
+    $result = add_role( $slug, $name, $caps );
+    if ( null === $result ) {
+        wp_send_json_error( 'Aanmaken mislukt.' );
+    }
+
+    wp_send_json_success( 'Rol aangemaakt' );
+} );
+
+/* ------------------------------------------------------------------
+ *  AJAX: rol verwijderen (incl. opschonen instellingen)
+ * ------------------------------------------------------------------ */
+add_action( 'wp_ajax_dp_toolbox_rm_delete_role', function () {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( 'Geen toegang' );
+    }
+    check_ajax_referer( 'dp_toolbox_role_manager', 'nonce' );
+
+    $role = sanitize_key( $_POST['role'] ?? '' );
+    if ( $role === '' ) {
+        wp_send_json_error( 'Geen rol opgegeven' );
+    }
+    if ( in_array( $role, [ 'administrator', 'editor', 'author', 'contributor', 'subscriber' ], true ) ) {
+        wp_send_json_error( 'WordPress-standaardrollen kunnen niet verwijderd worden.' );
+    }
+    if ( ! get_role( $role ) ) {
+        wp_send_json_error( 'Rol bestaat niet.' );
+    }
+
+    remove_role( $role );
+
+    delete_option( 'dp_toolbox_rm_hidden_menus_' . $role );
+    delete_option( 'dp_toolbox_rm_hidden_submenus_' . $role );
+
+    wp_send_json_success( 'Rol verwijderd' );
+} );
+
+/* ------------------------------------------------------------------
  *  Admin pagina render
  * ------------------------------------------------------------------ */
-function dp_toolbox_rm_page() {
+function dp_toolbox_rm_render_inline() {
     $nonce = wp_create_nonce( 'dp_toolbox_role_manager' );
 
     // Alle rollen behalve administrator
@@ -96,7 +164,17 @@ function dp_toolbox_rm_page() {
         ];
     }
 
-    dp_toolbox_page_start( 'Role Manager', 'Beheer welke menu-items en plugins zichtbaar zijn per gebruikersrol.' );
+    // Custom rollen (alle rollen behalve WordPress-standaarden)
+    $wp_default_roles = [ 'administrator', 'editor', 'author', 'contributor', 'subscriber' ];
+    $user_counts      = count_users();
+    $custom_roles     = [];
+    foreach ( wp_roles()->role_names as $slug => $name ) {
+        if ( in_array( $slug, $wp_default_roles, true ) ) continue;
+        $custom_roles[ $slug ] = [
+            'name'       => $name,
+            'user_count' => (int) ( $user_counts['avail_roles'][ $slug ] ?? 0 ),
+        ];
+    }
     ?>
     <style>
         /* Tabs */
@@ -152,11 +230,35 @@ function dp_toolbox_rm_page() {
             display: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
             background: #00a32a; color: #fff; margin-top: 12px;
         }
+        .dp-rm-toast.dp-rm-toast-error { background: #d63638; }
+
+        /* Rollen tab specifiek */
+        .dp-rm-section-title { margin: 0 0 12px; font-size: 14px; font-weight: 600; color: #1d2327; }
+        .dp-rm-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; padding: 16px; }
+        .dp-rm-form-field { display: flex; flex-direction: column; }
+        .dp-rm-form-field label { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }
+        .dp-rm-form-field input[type="text"],
+        .dp-rm-form-field select {
+            padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; min-width: 180px;
+        }
+        .dp-rm-form-hint { font-size: 11px; color: #888; margin-top: 4px; }
+        .dp-rm-section { margin-top: 24px; }
+        .dp-rm-empty { padding: 24px; text-align: center; color: #888; font-size: 13px; }
+        .dp-rm-btn-delete {
+            background: #fff; color: #d63638; border: 1px solid #d63638;
+            padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+        }
+        .dp-rm-btn-delete:hover { background: #d63638; color: #fff; }
     </style>
 
     <!-- Tabs -->
     <div class="dp-rm-tabs">
-        <div class="dp-rm-tab active" data-tab="menus">
+        <div class="dp-rm-tab active" data-tab="roles">
+            <span class="dashicons dashicons-businessman" style="font-size:14px;width:14px;height:14px;vertical-align:middle;margin-right:4px;"></span>
+            Rollen
+        </div>
+        <div class="dp-rm-tab" data-tab="menus">
             <span class="dashicons dashicons-menu" style="font-size:14px;width:14px;height:14px;vertical-align:middle;margin-right:4px;"></span>
             Menu Beheer
         </div>
@@ -166,8 +268,58 @@ function dp_toolbox_rm_page() {
         </div>
     </div>
 
+    <!-- Panel: Rollen -->
+    <div class="dp-rm-panel active" id="dp-rm-roles">
+        <h3 class="dp-rm-section-title">Nieuwe rol aanmaken</h3>
+        <div class="dp-rm-card">
+            <form class="dp-rm-form" id="dp-rm-new-role-form">
+                <div class="dp-rm-form-field">
+                    <label for="dp-rm-new-role-slug">Slug (intern)</label>
+                    <input type="text" id="dp-rm-new-role-slug" placeholder="fotograaf" pattern="[a-z0-9_]+" maxlength="32" required>
+                    <span class="dp-rm-form-hint">a-z, 0-9, underscore</span>
+                </div>
+                <div class="dp-rm-form-field">
+                    <label for="dp-rm-new-role-name">Naam (zichtbaar)</label>
+                    <input type="text" id="dp-rm-new-role-name" placeholder="Fotograaf" required>
+                    <span class="dp-rm-form-hint">Wat de gebruiker te zien krijgt</span>
+                </div>
+                <div class="dp-rm-form-field">
+                    <label for="dp-rm-new-role-clone">Capabilities kopi&euml;ren van</label>
+                    <select id="dp-rm-new-role-clone">
+                        <option value="subscriber">Subscriber (alleen lezen)</option>
+                        <option value="contributor">Contributor</option>
+                        <option value="author">Author</option>
+                        <option value="editor">Editor</option>
+                    </select>
+                    <span class="dp-rm-form-hint">Basisset rechten</span>
+                </div>
+                <button type="submit" class="dp-rm-btn">Rol aanmaken</button>
+            </form>
+            <div style="padding: 0 16px 16px;"><div class="dp-rm-toast" id="dp-rm-toast-roles">Rol aangemaakt!</div></div>
+        </div>
+
+        <div class="dp-rm-section">
+            <h3 class="dp-rm-section-title">Bestaande custom rollen</h3>
+            <div class="dp-rm-card">
+                <div class="dp-rm-list" id="dp-rm-custom-roles-list">
+                    <?php if ( empty( $custom_roles ) ) : ?>
+                        <div class="dp-rm-empty">Nog geen custom rollen aangemaakt.</div>
+                    <?php else : foreach ( $custom_roles as $slug => $info ) : ?>
+                        <div class="dp-rm-item">
+                            <div style="flex: 1;">
+                                <div class="dp-rm-label"><?php echo esc_html( $info['name'] ); ?></div>
+                                <div class="dp-rm-slug"><?php echo esc_html( $slug ); ?> &middot; <?php echo (int) $info['user_count']; ?> gebruiker<?php echo $info['user_count'] === 1 ? '' : 's'; ?></div>
+                            </div>
+                            <button class="dp-rm-btn-delete" data-role="<?php echo esc_attr( $slug ); ?>" data-users="<?php echo (int) $info['user_count']; ?>">Verwijderen</button>
+                        </div>
+                    <?php endforeach; endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Panel: Menu Beheer -->
-    <div class="dp-rm-panel active" id="dp-rm-menus">
+    <div class="dp-rm-panel" id="dp-rm-menus">
         <div class="dp-rm-role-bar">
             <label for="dp-rm-role">Rol:</label>
             <select id="dp-rm-role">
@@ -335,6 +487,77 @@ function dp_toolbox_rm_page() {
             });
         });
 
+        // --- Nieuwe rol aanmaken ---
+        var newRoleForm = document.getElementById('dp-rm-new-role-form');
+        if (newRoleForm) {
+            newRoleForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var slugEl  = document.getElementById('dp-rm-new-role-slug');
+                var nameEl  = document.getElementById('dp-rm-new-role-name');
+                var cloneEl = document.getElementById('dp-rm-new-role-clone');
+                var toast   = document.getElementById('dp-rm-toast-roles');
+                var btn     = newRoleForm.querySelector('button[type="submit"]');
+
+                var fd = new FormData();
+                fd.append('action', 'dp_toolbox_rm_add_role');
+                fd.append('nonce', nonce);
+                fd.append('slug', slugEl.value.trim());
+                fd.append('name', nameEl.value.trim());
+                fd.append('clone_from', cloneEl.value);
+
+                btn.disabled = true;
+                fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    btn.disabled = false;
+                    if (res.success) {
+                        toast.textContent = 'Rol aangemaakt!';
+                        toast.classList.remove('dp-rm-toast-error');
+                        toast.style.display = 'inline-block';
+                        setTimeout(function() { location.reload(); }, 600);
+                    } else {
+                        toast.textContent = res.data || 'Aanmaken mislukt.';
+                        toast.classList.add('dp-rm-toast-error');
+                        toast.style.display = 'inline-block';
+                        setTimeout(function() { toast.style.display = 'none'; }, 3500);
+                    }
+                });
+            });
+        }
+
+        // --- Rol verwijderen ---
+        document.querySelectorAll('.dp-rm-btn-delete').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var role  = this.dataset.role;
+                var users = parseInt(this.dataset.users, 10) || 0;
+                var msg   = 'Weet je zeker dat je de rol "' + role + '" wilt verwijderen?';
+                if (users > 0) {
+                    msg += '\n\nLet op: ' + users + ' gebruiker' + (users === 1 ? '' : 's') +
+                           ' heeft deze rol. Die behoud' + (users === 1 ? 't' : 'en') +
+                           ' geen rol meer en kan' + (users === 1 ? '' : 'nen') + ' niet meer inloggen.\nWijs ze eerst een andere rol toe via Gebruikers.';
+                }
+                msg += '\n\nDe Role Manager-instellingen voor deze rol worden ook verwijderd.';
+                if (!confirm(msg)) return;
+
+                var fd = new FormData();
+                fd.append('action', 'dp_toolbox_rm_delete_role');
+                fd.append('nonce', nonce);
+                fd.append('role', role);
+
+                btn.disabled = true;
+                fetch(ajaxUrl, { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (res.success) {
+                        location.reload();
+                    } else {
+                        alert(res.data || 'Verwijderen mislukt.');
+                        btn.disabled = false;
+                    }
+                });
+            });
+        });
+
         // --- Plugins opslaan ---
         document.getElementById('dp-rm-save-plugins').addEventListener('click', function() {
             var btn = this;
@@ -361,5 +584,4 @@ function dp_toolbox_rm_page() {
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

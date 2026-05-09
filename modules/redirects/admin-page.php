@@ -1,25 +1,24 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Redirects',
-        'Redirects',
-        'manage_options',
-        'dp-toolbox-redirects',
-        'dp_toolbox_redirects_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'redirects', 'dp_toolbox_redirects_render_inline', [
+            'title'       => 'Redirects',
+            'description' => 'Beheer 301/302 redirects — stuur oude URLs door naar nieuwe.',
+        ] );
+    }
 } );
 
-function dp_toolbox_redirects_page() {
+function dp_toolbox_redirects_render_inline() {
     $redirects = dp_toolbox_redirects_get_all();
     $nonce     = wp_create_nonce( 'dp_toolbox_redirects' );
     $ajax_url  = admin_url( 'admin-ajax.php' );
     $total     = count( $redirects );
     $active    = count( array_filter( $redirects, function ( $r ) { return ! empty( $r['active'] ); } ) );
-
-    dp_toolbox_page_start( 'Redirects', 'Beheer 301/302 redirects — stuur oude URLs door naar nieuwe.' );
     ?>
     <style>
         .dp-rd-stats { display: flex; gap: 12px; margin-bottom: 20px; }
@@ -362,5 +361,4 @@ function dp_toolbox_redirects_page() {
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

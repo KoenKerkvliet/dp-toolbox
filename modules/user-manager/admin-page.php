@@ -4,15 +4,16 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 /* ------------------------------------------------------------------
  *  Menu registratie
  * ------------------------------------------------------------------ */
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'User Manager',
-        'User Manager',
-        'manage_options',
-        'dp-toolbox-user-manager',
-        'dp_toolbox_um_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'user-manager', 'dp_toolbox_um_render_inline', [
+            'title'       => 'User Manager',
+            'description' => 'Beheer per administrator welke plugins en sidebar-items zichtbaar zijn.',
+        ] );
+    }
 } );
 
 /* ------------------------------------------------------------------
@@ -66,7 +67,7 @@ add_action( 'admin_post_dp_toolbox_um_save', function () {
 /* ------------------------------------------------------------------
  *  Render pagina
  * ------------------------------------------------------------------ */
-function dp_toolbox_um_page() {
+function dp_toolbox_um_render_inline() {
     if ( ! dp_toolbox_um_is_superadmin() ) {
         wp_die( 'Alleen @designpixels.nl accounts hebben toegang tot User Manager.' );
     }
@@ -106,9 +107,6 @@ function dp_toolbox_um_page() {
 
     // Huidige settings voor geselecteerde user
     $settings = $selected_user ? dp_toolbox_um_get_settings( $selected_user->ID ) : [ 'plugins' => [], 'menus' => [], 'submenus' => [] ];
-
-    dp_toolbox_page_start( 'User Manager', 'Beheer per administrator welke plugins en sidebar-items zichtbaar zijn.' );
-
     if ( ! empty( $_GET['updated'] ) ) {
         echo '<div class="notice notice-success is-dismissible"><p>Instellingen opgeslagen.</p></div>';
     }
@@ -334,5 +332,4 @@ function dp_toolbox_um_page() {
     </div>
 
     <?php
-    dp_toolbox_page_end();
 }

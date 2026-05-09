@@ -7,20 +7,20 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Unused Media',
-        'Unused Media',
-        'manage_options',
-        'dp-toolbox-unused-media',
-        'dp_toolbox_unused_media_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'unused-media', 'dp_toolbox_unused_media_render_inline', [
+            'title'       => 'Unused Media',
+            'description' => 'Vind en verwijder afbeeldingen die nergens op de site gebruikt worden.',
+        ] );
+    }
 } );
 
-function dp_toolbox_unused_media_page() {
+function dp_toolbox_unused_media_render_inline() {
     $nonce = wp_create_nonce( 'dp_toolbox_unused_media' );
-    dp_toolbox_page_start( 'Unused Media Finder', 'Vind en verwijder afbeeldingen die nergens op de site gebruikt worden.' );
     ?>
 
         <style>
@@ -371,5 +371,4 @@ function dp_toolbox_unused_media_page() {
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

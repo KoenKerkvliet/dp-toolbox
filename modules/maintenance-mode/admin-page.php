@@ -9,20 +9,20 @@ add_action( 'admin_init', function () {
     ] );
 } );
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Maintenance Mode',
-        'Maintenance Mode',
-        'manage_options',
-        'dp-toolbox-maintenance',
-        'dp_toolbox_maintenance_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'maintenance-mode', 'dp_toolbox_maintenance_render_inline', [
+            'title'       => 'Maintenance Mode',
+            'description' => 'Ingelogde gebruikers met bewerkrechten kunnen de site gewoon bekijken.',
+        ] );
+    }
 } );
 
-function dp_toolbox_maintenance_page() {
+function dp_toolbox_maintenance_render_inline() {
     $enabled = get_option( 'dp_toolbox_maintenance_enabled', false );
-    dp_toolbox_page_start( 'Maintenance Mode', 'Ingelogde gebruikers met bewerkrechten kunnen de site gewoon bekijken.' );
     ?>
         <style>
 
@@ -82,5 +82,4 @@ function dp_toolbox_maintenance_page() {
             </div>
         </form>
     <?php
-    dp_toolbox_page_end();
 }

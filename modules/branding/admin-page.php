@@ -27,22 +27,23 @@ add_action( 'admin_init', function () {
 /*  Admin menu                                                         */
 /* ------------------------------------------------------------------ */
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Branding',
-        'Branding',
-        'manage_options',
-        'dp-toolbox-branding',
-        'dp_toolbox_branding_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'branding', 'dp_toolbox_branding_render_inline', [
+            'title'       => 'Branding',
+            'description' => 'Geef de WordPress admin-sidebar iconen een eigen merkkleur.',
+        ] );
+    }
 } );
 
 /* ------------------------------------------------------------------ */
 /*  Render page                                                        */
 /* ------------------------------------------------------------------ */
 
-function dp_toolbox_branding_page() {
+function dp_toolbox_branding_render_inline() {
     $color = get_option( 'dp_toolbox_branding_color', '' );
 
     // Predefined palette (inspiration)
@@ -57,8 +58,6 @@ function dp_toolbox_branding_page() {
         '#7c3aed' => 'Violet',
         '#1d2327' => 'Zwart',
     ];
-
-    dp_toolbox_page_start( 'Branding', 'Geef de WordPress admin-sidebar iconen een eigen merkkleur.' );
     ?>
     <style>
         .dp-br-card {
@@ -260,5 +259,4 @@ function dp_toolbox_branding_page() {
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

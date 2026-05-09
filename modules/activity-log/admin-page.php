@@ -1,26 +1,25 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Activity Log',
-        'Activity Log',
-        'manage_options',
-        'dp-toolbox-activity-log',
-        'dp_toolbox_activity_log_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'activity-log', 'dp_toolbox_activity_log_render_inline', [
+            'title'       => 'Activity Log',
+            'description' => 'Overzicht van alle activiteiten op de site.',
+        ] );
+    }
 } );
 
-function dp_toolbox_activity_log_page() {
+function dp_toolbox_activity_log_render_inline() {
     $nonce    = wp_create_nonce( 'dp_toolbox_activity_log' );
     $ajax_url = admin_url( 'admin-ajax.php' );
 
     global $wpdb;
     $table = $wpdb->prefix . 'dp_activity_log';
     $total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-
-    dp_toolbox_page_start( 'Activity Log', 'Overzicht van alle activiteiten op de site.' );
     ?>
     <style>
         .dp-al-toolbar {
@@ -229,5 +228,4 @@ function dp_toolbox_activity_log_page() {
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

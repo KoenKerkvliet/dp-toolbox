@@ -1,8 +1,8 @@
 <?php
 /**
  * Module Name: Role Manager
- * Description: Verberg menu-items en plugins per gebruikersrol.
- * Version: 1.0.0
+ * Description: Maak custom rollen aan en verberg menu-items en plugins per gebruikersrol.
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

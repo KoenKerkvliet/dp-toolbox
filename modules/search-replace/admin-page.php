@@ -1,18 +1,19 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Search & Replace',
-        'Search & Replace',
-        'manage_options',
-        'dp-toolbox-search-replace',
-        'dp_toolbox_search_replace_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'search-replace', 'dp_toolbox_search_replace_render_inline', [
+            'title'       => 'Search & Replace',
+            'description' => 'Zoek en vervang tekst in de WordPress database — serialization-aware.',
+        ] );
+    }
 } );
 
-function dp_toolbox_search_replace_page() {
+function dp_toolbox_search_replace_render_inline() {
     $tables   = dp_toolbox_sr_get_tables();
     $nonce    = wp_create_nonce( 'dp_toolbox_search_replace' );
     $ajax_url = admin_url( 'admin-ajax.php' );
@@ -30,8 +31,6 @@ function dp_toolbox_search_replace_page() {
         $wpdb->usermeta,
         $wpdb->links,
     ];
-
-    dp_toolbox_page_start( 'Search & Replace', 'Zoek en vervang tekst in de WordPress database — serialization-aware.' );
     ?>
     <style>
         .dp-sr-card {
@@ -333,5 +332,4 @@ function dp_toolbox_search_replace_page() {
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

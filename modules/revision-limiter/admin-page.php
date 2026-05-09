@@ -12,22 +12,22 @@ add_action( 'admin_init', function () {
     ] );
 } );
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Revision Limiter',
-        'Revision Limiter',
-        'manage_options',
-        'dp-toolbox-revisions',
-        'dp_toolbox_revisions_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'revision-limiter', 'dp_toolbox_revisions_render_inline', [
+            'title'       => 'Revision Limiter',
+            'description' => 'Beperk het aantal revisies om de database schoon te houden.',
+        ] );
+    }
 } );
 
-function dp_toolbox_revisions_page() {
+function dp_toolbox_revisions_render_inline() {
     $limit = (int) get_option( 'dp_toolbox_revision_limit', 5 );
     global $wpdb;
     $revision_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'revision'" );
-    dp_toolbox_page_start( 'Revision Limiter', 'Beperk het aantal revisies om de database schoon te houden.' );
     ?>
         <style>
 
@@ -129,5 +129,4 @@ function dp_toolbox_revisions_page() {
     });
     </script>
     <?php
-    dp_toolbox_page_end();
 }

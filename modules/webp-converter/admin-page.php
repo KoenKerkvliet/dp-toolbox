@@ -7,18 +7,19 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'WebP Converter',
-        'WebP Converter',
-        'manage_options',
-        'dp-toolbox-webp-converter',
-        'dp_toolbox_webp_admin_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'webp-converter', 'dp_toolbox_webp_admin_render_inline', [
+            'title'       => 'WebP Converter',
+            'description' => 'Converteer afbeeldingen naar WebP en optimaliseer bestandsgrootte.',
+        ] );
+    }
 } );
 
-function dp_toolbox_webp_admin_page() {
+function dp_toolbox_webp_admin_render_inline() {
     if ( isset( $_GET['set_max_width'] ) && current_user_can( 'manage_options' ) ) {
         dp_toolbox_set_max_width();
     }
@@ -28,7 +29,6 @@ function dp_toolbox_webp_admin_page() {
     if ( isset( $_GET['clear_log'] ) && current_user_can( 'manage_options' ) ) {
         dp_toolbox_clear_log();
     }
-    dp_toolbox_page_start( 'WebP Converter', 'Converteer afbeeldingen naar WebP en optimaliseer bestandsgrootte.' );
     ?>
     <p class="dp-page-desc">
         Nieuwe uploads worden automatisch geconverteerd naar WebP. Gebruik de knoppen hieronder voor bestaande afbeeldingen.
@@ -61,7 +61,7 @@ function dp_toolbox_webp_admin_page() {
     <script>
     (function(){
         var ajaxUrl = '<?php echo esc_js( admin_url( "admin-ajax.php" ) ); ?>';
-        var pageUrl = '<?php echo esc_js( admin_url( "admin.php?page=dp-toolbox-webp-converter" ) ); ?>';
+        var pageUrl = '<?php echo esc_js( admin_url( "admin.php?page=dp-toolbox#settings-webp-converter" ) ); ?>';
 
         function updateStatus() {
             fetch(ajaxUrl + '?action=dp_toolbox_webp_status')
@@ -110,5 +110,4 @@ function dp_toolbox_webp_admin_page() {
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

@@ -44,26 +44,25 @@ function dp_toolbox_smtp_sanitize( $input ) {
 /*  Admin menu                                                         */
 /* ------------------------------------------------------------------ */
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'SMTP Mailer',
-        'SMTP Mailer',
-        'manage_options',
-        'dp-toolbox-smtp',
-        'dp_toolbox_smtp_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'smtp', 'dp_toolbox_smtp_render_inline', [
+            'title'       => 'SMTP Mailer',
+            'description' => 'Configureer een SMTP-server voor betrouwbare e-mailverzending.',
+        ] );
+    }
 } );
 
 /* ------------------------------------------------------------------ */
 /*  Render page                                                        */
 /* ------------------------------------------------------------------ */
 
-function dp_toolbox_smtp_page() {
+function dp_toolbox_smtp_render_inline() {
     $smtp = dp_toolbox_smtp_get_settings();
     $has_password = ! empty( get_option( 'dp_toolbox_smtp_settings', [] )['password'] );
-
-    dp_toolbox_page_start( 'SMTP Mailer', 'Configureer een SMTP-server voor betrouwbare e-mailverzending.' );
     ?>
     <style>
         .dp-smtp-card {
@@ -306,5 +305,4 @@ function dp_toolbox_smtp_page() {
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

@@ -15,17 +15,12 @@ function dp_toolbox_current_user_has_access() {
     $user = wp_get_current_user();
     if ( ! $user || ! $user->ID ) return false;
 
-    // Allowed roles (default: only administrator)
-    $allowed_roles = (array) get_option( 'dp_toolbox_allowed_roles', [ 'administrator' ] );
-    $user_roles    = (array) $user->roles;
+    // Plugin is alleen zichtbaar voor @designpixels.nl users.
+    if ( ! dp_toolbox_is_dp_user( $user->ID ) ) return false;
 
-    $role_match = ! empty( array_intersect( $user_roles, $allowed_roles ) );
-    if ( ! $role_match ) return false;
-
-    // Blocked admins
-    $blocked_users = (array) get_option( 'dp_toolbox_blocked_users', [] );
-    if ( in_array( (string) $user->ID, $blocked_users, true ) ) return false;
-
+    // DP-staff (@designpixels.nl) heeft ALTIJD toegang — bypass role + block checks.
+    // Voorkomt lock-out wanneer per ongeluk 'administrator' uit allowed_roles wordt
+    // verwijderd of een DP-user in blocked_users belandt.
     return true;
 }
 
@@ -118,8 +113,9 @@ function dp_toolbox_settings_page() {
         wp_die( 'Je hebt geen toegang tot deze pagina.' );
     }
 
-    $tab      = isset( $_GET['tab'] ) && $_GET['tab'] === 'admin' ? 'admin' : 'modules';
-    $base_url = admin_url( 'admin.php?page=dp-toolbox' );
+    $tab_param = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+    $tab       = in_array( $tab_param, [ 'admin', 'checklist' ], true ) ? $tab_param : 'modules';
+    $base_url  = admin_url( 'admin.php?page=dp-toolbox' );
 
     // Pre-calculate module counts for header display
     $all_modules  = dp_toolbox_get_available_modules();
@@ -257,6 +253,9 @@ function dp_toolbox_settings_page() {
                     <a href="<?php echo esc_url( add_query_arg( 'tab', 'admin', $base_url ) ); ?>" class="<?php echo $tab === 'admin' ? 'active' : ''; ?>">
                         <span class="dashicons dashicons-admin-generic"></span> Instellingen
                     </a>
+                    <a href="<?php echo esc_url( add_query_arg( 'tab', 'checklist', $base_url ) ); ?>" class="<?php echo $tab === 'checklist' ? 'active' : ''; ?>">
+                        <span class="dashicons dashicons-yes-alt"></span> Checklist
+                    </a>
                 </nav>
                 <div class="dp-header-actions" id="dp-header-actions">
                         <?php if ( $tab === 'modules' ) : ?>
@@ -271,6 +270,8 @@ function dp_toolbox_settings_page() {
             <?php
             if ( $tab === 'admin' ) {
                 dp_toolbox_render_admin_tab();
+            } elseif ( $tab === 'checklist' ) {
+                dp_toolbox_render_checklist_tab();
             } else {
                 dp_toolbox_render_modules_tab();
             }
@@ -464,6 +465,61 @@ function dp_toolbox_render_modules_tab() {
             border-bottom: 6px solid #1d2327;
         }
         .dp-module-warn:hover .dp-module-warn-tip { display: block; }
+
+        /* Settings (gear) button — only on active modules with inline settings */
+        .dp-module-settings-btn {
+            background: none; border: 1px solid transparent; border-radius: 4px;
+            color: #bbb; cursor: pointer; padding: 2px 4px; line-height: 1;
+            display: inline-flex; align-items: center; transition: all 0.15s;
+        }
+        .dp-module-settings-btn:hover {
+            color: #281E5D; border-color: #d8d3eb; background: #f5f3fb;
+        }
+        .dp-module-settings-btn.is-open {
+            color: #281E5D; background: #eee8ff; border-color: #c4b5fd;
+        }
+        .dp-module-settings-btn .dashicons { font-size: 16px; width: 16px; height: 16px; }
+
+        /* Inline settings panel container (under modules layout) */
+        .dp-inline-settings-wrap {
+            margin: 24px -32px -24px;  /* bleed into .dp-toolbox-content padding */
+            padding: 0;
+            border-top: 1px solid #e0e0e0;
+            background: #fff;
+            border-radius: 0 0 10px 10px;
+            display: none;
+        }
+        .dp-inline-settings-wrap.is-open { display: block; }
+        .dp-inline-panel {
+            display: none;
+            padding: 22px 32px;
+        }
+        .dp-inline-panel.is-visible { display: block; }
+        .dp-inline-panel-header {
+            display: flex; align-items: center; gap: 10px;
+            margin: 0 0 16px; padding-bottom: 12px;
+            border-bottom: 2px solid #281E5D;
+        }
+        .dp-inline-panel-header h2 {
+            margin: 0; font-size: 16px; font-weight: 700; color: #1d2327; flex: 1;
+        }
+        .dp-inline-panel-header .dp-inline-panel-desc {
+            font-size: 12px; color: #888; font-weight: 400;
+            margin-left: 8px;
+        }
+        .dp-inline-panel-close {
+            background: none; border: 1px solid #ddd; border-radius: 4px;
+            color: #888; cursor: pointer; padding: 3px 9px; font-size: 16px;
+            line-height: 1; transition: all 0.15s;
+        }
+        .dp-inline-panel-close:hover {
+            border-color: #d63638; color: #d63638;
+        }
+        /* Reset module-page styles that fight with inline context */
+        .dp-inline-panel .dp-page-wrap { max-width: none; padding: 0; margin: 0; }
+        .dp-inline-panel .dp-page-header,
+        .dp-inline-panel .dp-page-content { background: transparent; padding: 0; border: none; border-radius: 0; }
+        .dp-inline-panel .dp-page-header { display: none; }
     </style>
 
     <form id="dp-modules-form" method="post" action="options.php">
@@ -521,6 +577,14 @@ function dp_toolbox_render_modules_tab() {
                                         </h3>
                                     </div>
                                     <div class="dp-module-icons">
+                                        <?php if ( $is_active && dp_toolbox_has_inline_settings( $slug ) ) : ?>
+                                            <button type="button"
+                                                    class="dp-module-settings-btn"
+                                                    data-module="<?php echo esc_attr( $slug ); ?>"
+                                                    title="Instellingen">
+                                                <span class="dashicons dashicons-admin-generic"></span>
+                                            </button>
+                                        <?php endif; ?>
                                         <?php if ( $has_notice ) : ?>
                                             <span class="dp-module-warn">
                                                 <span class="dashicons dashicons-warning"></span>
@@ -543,6 +607,37 @@ function dp_toolbox_render_modules_tab() {
         </div>
     </form>
 
+    <?php
+    /* ----------------------------------------------------------------- */
+    /*  Inline settings panels — pre-rendered, hidden by default          */
+    /* ----------------------------------------------------------------- */
+    $inline_settings = dp_toolbox_get_inline_settings();
+    // Filter: only render panels for modules that are currently enabled
+    $inline_settings = array_filter( $inline_settings, function ( $cfg, $slug ) use ( $enabled ) {
+        return in_array( $slug, $enabled, true ) && is_callable( $cfg['callback'] );
+    }, ARRAY_FILTER_USE_BOTH );
+    ?>
+    <?php if ( ! empty( $inline_settings ) ) : ?>
+        <div class="dp-inline-settings-wrap" id="dp-inline-settings-wrap">
+            <?php foreach ( $inline_settings as $slug => $cfg ) : ?>
+                <div class="dp-inline-panel"
+                     data-inline-module="<?php echo esc_attr( $slug ); ?>"
+                     id="settings-<?php echo esc_attr( $slug ); ?>">
+                    <div class="dp-inline-panel-header">
+                        <h2><?php echo esc_html( $cfg['title'] ?: $slug ); ?></h2>
+                        <?php if ( ! empty( $cfg['description'] ) ) : ?>
+                            <span class="dp-inline-panel-desc"><?php echo esc_html( $cfg['description'] ); ?></span>
+                        <?php endif; ?>
+                        <button type="button" class="dp-inline-panel-close" title="Sluiten">×</button>
+                    </div>
+                    <div class="dp-inline-panel-body">
+                        <?php call_user_func( $cfg['callback'] ); ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
     <script>
     (function(){
         var items  = document.querySelectorAll('.dp-sidebar-item');
@@ -557,14 +652,87 @@ function dp_toolbox_render_modules_tab() {
             item.addEventListener('click', function(e) {
                 e.preventDefault();
                 activate(this.dataset.cat);
-                history.replaceState(null, '', this.getAttribute('href'));
+                // Preserve any settings-hash if open, otherwise just write the cat hash
+                var openSlug = sessionStorage.getItem('dp_toolbox_open_panel');
+                history.replaceState(null, '', openSlug ? '#settings-' + openSlug : this.getAttribute('href'));
             });
         });
 
-        // Restore from URL hash
+        /* --- Inline settings panels --- */
+        var inlineWrap   = document.getElementById('dp-inline-settings-wrap');
+        var inlinePanels = document.querySelectorAll('.dp-inline-panel');
+        var gearBtns     = document.querySelectorAll('.dp-module-settings-btn');
+
+        function openInlinePanel(slug) {
+            if (!inlineWrap) return;
+            var target = document.querySelector('[data-inline-module="' + slug + '"]');
+            if (!target) return;
+
+            inlinePanels.forEach(function(p) { p.classList.remove('is-visible'); });
+            gearBtns.forEach(function(b) { b.classList.toggle('is-open', b.dataset.module === slug); });
+
+            target.classList.add('is-visible');
+            inlineWrap.classList.add('is-open');
+            sessionStorage.setItem('dp_toolbox_open_panel', slug);
+            history.replaceState(null, '', '#settings-' + slug);
+
+            // Smooth-scroll AFTER the wrap becomes visible (next frame)
+            requestAnimationFrame(function () {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
+
+        function closeInlinePanel() {
+            if (!inlineWrap) return;
+            inlinePanels.forEach(function(p) { p.classList.remove('is-visible'); });
+            gearBtns.forEach(function(b) { b.classList.remove('is-open'); });
+            inlineWrap.classList.remove('is-open');
+            sessionStorage.removeItem('dp_toolbox_open_panel');
+            // Strip the #settings-... hash but keep current category if any
+            var activeCat = document.querySelector('.dp-sidebar-item.is-active');
+            history.replaceState(null, '', activeCat ? activeCat.getAttribute('href') : location.pathname + location.search);
+        }
+
+        gearBtns.forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var slug = this.dataset.module;
+                if (this.classList.contains('is-open')) {
+                    closeInlinePanel();
+                } else {
+                    openInlinePanel(slug);
+                }
+            });
+        });
+
+        document.querySelectorAll('.dp-inline-panel-close').forEach(function(btn) {
+            btn.addEventListener('click', closeInlinePanel);
+        });
+
+        /* --- Restore state from URL hash or sessionStorage --- */
         var hash = location.hash.replace('#', '');
-        if (hash && document.querySelector('[data-cat="' + hash + '"]')) {
+        if (hash.indexOf('settings-') === 0) {
+            var slug = hash.replace('settings-', '');
+            // First activate the category that contains this module so the gear is reachable
+            var btn = document.querySelector('.dp-module-settings-btn[data-module="' + slug + '"]');
+            if (btn) {
+                var card = btn.closest('.dp-cat-panel');
+                if (card && card.dataset.category) activate(card.dataset.category);
+                openInlinePanel(slug);
+            }
+        } else if (hash && document.querySelector('[data-cat="' + hash + '"]')) {
             activate(hash);
+            // Re-open last panel from sessionStorage (within current cat)
+            var lastSlug = sessionStorage.getItem('dp_toolbox_open_panel');
+            if (lastSlug && document.querySelector('.dp-module-settings-btn[data-module="' + lastSlug + '"]')) {
+                openInlinePanel(lastSlug);
+            }
+        } else {
+            // No hash — still try to restore from sessionStorage
+            var lastSlug = sessionStorage.getItem('dp_toolbox_open_panel');
+            if (lastSlug && document.querySelector('.dp-module-settings-btn[data-module="' + lastSlug + '"]')) {
+                openInlinePanel(lastSlug);
+            }
         }
     })();
     </script>
@@ -580,8 +748,13 @@ function dp_toolbox_render_admin_tab() {
     $blocked_users = array_map( 'strval', (array) get_option( 'dp_toolbox_blocked_users', [] ) );
     $all_roles     = wp_roles()->roles;
 
-    // Get all admin users (users who have any of the allowed roles)
+    // Get all admin users (users who have any of the allowed roles).
+    // DP-staff (@designpixels.nl) wordt eruit gefilterd — die hebben altijd toegang
+    // en zijn niet blokkeerbaar via de UI.
     $admin_users = get_users( [ 'role__in' => [ 'administrator' ], 'orderby' => 'display_name' ] );
+    $admin_users = array_values( array_filter( $admin_users, function ( $u ) {
+        return ! dp_toolbox_is_dp_user( $u->ID );
+    } ) );
     ?>
     <form method="post" action="options.php">
         <?php settings_fields( 'dp_toolbox_admin_settings' ); ?>
@@ -613,7 +786,7 @@ function dp_toolbox_render_admin_tab() {
 
         <div class="dp-admin-section">
             <h2>Administrators</h2>
-            <p class="desc">Blokkeer specifieke administrators. Geblokkeerde admins zien DP Toolbox niet, ook als hun rol toegang heeft.</p>
+            <p class="desc">Blokkeer specifieke administrators. Geblokkeerde admins zien DP Toolbox niet, ook als hun rol toegang heeft. Design Pixels-staff (@designpixels.nl) heeft altijd toegang en wordt hier niet getoond.</p>
             <div class="dp-user-grid">
                 <?php if ( empty( $admin_users ) ) : ?>
                     <p style="color:#999;font-size:13px;">Geen administrators gevonden.</p>

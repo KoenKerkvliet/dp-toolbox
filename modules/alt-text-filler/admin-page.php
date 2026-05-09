@@ -7,20 +7,20 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Alt Text Filler',
-        'Alt Text Filler',
-        'manage_options',
-        'dp-toolbox-alt-text',
-        'dp_toolbox_alt_text_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'alt-text-filler', 'dp_toolbox_alt_text_render_inline', [
+            'title'       => 'Alt Text Filler',
+            'description' => 'Vind afbeeldingen zonder alt-tekst en vul ze automatisch in.',
+        ] );
+    }
 } );
 
-function dp_toolbox_alt_text_page() {
+function dp_toolbox_alt_text_render_inline() {
     $nonce = wp_create_nonce( 'dp_toolbox_alt_filler' );
-    dp_toolbox_page_start( 'Alt Text Filler', 'Vind afbeeldingen zonder alt-tekst en vul ze automatisch in.' );
     ?>
 
         <style>
@@ -306,5 +306,4 @@ function dp_toolbox_alt_text_page() {
     })();
     </script>
     <?php
-    dp_toolbox_page_end();
 }

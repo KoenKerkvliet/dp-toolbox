@@ -26,27 +26,26 @@ add_action( 'admin_init', function () {
 /*  Admin menu                                                         */
 /* ------------------------------------------------------------------ */
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Custom Login URL',
-        'Custom Login URL',
-        'manage_options',
-        'dp-toolbox-login-url',
-        'dp_toolbox_login_url_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'custom-login-url', 'dp_toolbox_login_url_render_inline', [
+            'title'       => 'Custom Login URL',
+            'description' => 'Verplaats de WordPress login-pagina naar een eigen URL.',
+        ] );
+    }
 } );
 
 /* ------------------------------------------------------------------ */
 /*  Render page                                                        */
 /* ------------------------------------------------------------------ */
 
-function dp_toolbox_login_url_page() {
+function dp_toolbox_login_url_render_inline() {
     $slug = dp_toolbox_clu_get_slug();
     $is_active = ! empty( $slug );
     $emergency_key = substr( md5( AUTH_KEY ), 0, 8 );
-
-    dp_toolbox_page_start( 'Custom Login URL', 'Verplaats de WordPress login-pagina naar een eigen URL.' );
     ?>
     <style>
         .dp-clu-card {
@@ -186,5 +185,4 @@ function dp_toolbox_login_url_page() {
     </div>
 
     <?php
-    dp_toolbox_page_end();
 }

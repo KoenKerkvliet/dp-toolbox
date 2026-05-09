@@ -2,7 +2,7 @@
 /**
  * Module Name: Dashboard Widgets
  * Description: Aangepaste dashboard-widgets en opruimen van standaard WordPress-widgets.
- * Version: 1.1.0
+ * Version: 1.5.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -88,35 +88,58 @@ add_filter( 'get_user_option_closedpostboxes_dashboard', function ( $closed ) {
  *  Render: één gecombineerde widget
  * ------------------------------------------------------------------ */
 function dp_toolbox_dashboard_render() {
-    $show_welkom    = get_option( 'dp_toolbox_dashboard_welkom', true );
-    $show_analytics = get_option( 'dp_toolbox_dashboard_analytics', true );
-    $show_converter = get_option( 'dp_toolbox_dashboard_converter', true );
-    $show_punch     = get_option( 'dp_toolbox_dashboard_punch_card', false );
-    $show_forms     = get_option( 'dp_toolbox_dashboard_forms', true );
+    $show_welkom          = get_option( 'dp_toolbox_dashboard_welkom', true );
+    $show_analytics       = get_option( 'dp_toolbox_dashboard_analytics', true );
+    $show_analytics_lists = get_option( 'dp_toolbox_dashboard_analytics_lists', false );
+    $show_converter       = get_option( 'dp_toolbox_dashboard_converter', true );
+    $show_punch           = get_option( 'dp_toolbox_dashboard_punch_card', false );
+    $show_forms           = get_option( 'dp_toolbox_dashboard_forms', true );
+    $show_review          = get_option( 'dp_toolbox_dashboard_review', true )
+                            && ! (bool) get_user_meta( get_current_user_id(), 'dp_toolbox_review_given', true );
 
     // Wanneer welkom + analytics + IA actief zijn → welkom neemt stats + chart over,
-    // analytics-sectie toont alleen de top-lijstjes.
-    $ia_active    = $show_analytics && dp_toolbox_dashboard_ia_available();
+    // analytics-sectie toont alleen de top-lijstjes (en alleen als die optie aan is).
+    $ia_active         = $show_analytics && dp_toolbox_dashboard_ia_available();
     $merge_into_welkom = $show_welkom && $ia_active;
-    $ia_data      = $ia_active ? dp_toolbox_dashboard_get_analytics_data() : null;
+    $ia_data           = $ia_active ? dp_toolbox_dashboard_get_analytics_data() : null;
 
     if ( $show_welkom ) {
         dp_toolbox_dashboard_section_welkom( $merge_into_welkom ? $ia_data : null );
     }
 
     if ( $ia_active ) {
-        dp_toolbox_dashboard_section_analytics( $merge_into_welkom );
+        if ( ! $merge_into_welkom ) {
+            // Welkom uit → render volledige analytics sectie (header + chart, lists optioneel)
+            dp_toolbox_dashboard_section_analytics( false, $show_analytics_lists );
+        } elseif ( $show_analytics_lists ) {
+            // Welkom toont header + chart → render alleen lists onderaan
+            dp_toolbox_dashboard_section_analytics( true, true );
+        }
+        // else: header zit in welkom, lists optie uit → niets renderen
     }
 
-    // 3 kolommen onder welkom
-    $has_columns = $show_forms || $show_converter || $show_punch;
+    // Kolommen-rij onder welkom — review-kaart komt eerst (links)
+    $has_columns = $show_forms || $show_converter || $show_punch || $show_review;
     if ( $has_columns ) {
         echo '<div class="dp-dash-columns">';
+        if ( $show_review )    dp_toolbox_dashboard_section_review();
         if ( $show_forms )     dp_toolbox_dashboard_section_forms();
         if ( $show_converter ) dp_toolbox_dashboard_section_converter();
         if ( $show_punch )     dp_toolbox_dashboard_section_punch();
         echo '</div>';
     }
+
+    /**
+     * Extension point: derden kunnen hier extra full-width secties injecteren
+     * binnen de DP Dashboard widget. Output binnen dezelfde widget-container,
+     * styling matcht via .dp-dash-* klassen of eigen scoped CSS.
+     *
+     * Voorbeeld:
+     *   add_action( 'dp_toolbox_dashboard_sections', function () {
+     *       echo '<div class="dp-dash-section"><h3>Mijn sectie</h3>...</div>';
+     *   } );
+     */
+    do_action( 'dp_toolbox_dashboard_sections' );
 
     // Tutorials
     if ( get_option( 'dp_toolbox_dashboard_tutorials', false ) ) {
@@ -329,7 +352,10 @@ function dp_toolbox_dashboard_render_analytics_chart( $data, $opts = [] ) {
 /* ------------------------------------------------------------------
  *  Sectie: Analytics (Independent Analytics — laatste 7 dagen)
  * ------------------------------------------------------------------ */
-function dp_toolbox_dashboard_section_analytics( $lists_only = false ) {
+function dp_toolbox_dashboard_section_analytics( $lists_only = false, $show_lists = true ) {
+    // Niets te renderen als alleen-lijsten-modus actief is maar lijsten uit staan.
+    if ( $lists_only && ! $show_lists ) return;
+
     $data = dp_toolbox_dashboard_get_analytics_data();
 
     $views    = (int) ( $data['totals']['views'] ?? 0 );
@@ -373,6 +399,7 @@ function dp_toolbox_dashboard_section_analytics( $lists_only = false ) {
                 </div>
             <?php endif; ?>
 
+            <?php if ( $show_lists ) : ?>
             <div class="dp-dash-analytics-lists">
                 <div class="dp-dash-analytics-list">
                     <div class="dp-dash-analytics-list-title">Top pagina's</div>
@@ -411,6 +438,7 @@ function dp_toolbox_dashboard_section_analytics( $lists_only = false ) {
                     <?php endif; ?>
                 </div>
             </div>
+            <?php endif; // $show_lists ?>
         <?php endif; ?>
     </div>
     <?php
@@ -749,7 +777,7 @@ function dp_toolbox_dashboard_section_punch() {
     echo '<div class="dp-dash-section-title">Strippen</div>';
 
     if ( empty( $api_key ) ) {
-        $url = admin_url( 'admin.php?page=dp-toolbox-dashboard-widgets' );
+        $url = admin_url( 'admin.php?page=dp-toolbox#settings-dashboard-widgets' );
         echo '<div class="dp-dash-punch-notice">';
         echo '<span class="dashicons dashicons-info"></span> ';
         echo 'Configureer je API-key in de <a href="' . esc_url( $url ) . '">instellingen</a>.';
@@ -1220,8 +1248,231 @@ add_action( 'admin_head-index.php', function () {
             .dp-dash-analytics-stats { flex-wrap: wrap; }
             .dp-dash-analytics-lists { grid-template-columns: 1fr; }
         }
+
+        /* ---- Review-kaart ---- */
+        .dp-dash-review {
+            position: relative; overflow: hidden;
+            background: linear-gradient(135deg, #1a1235 0%, #281E5D 45%, #4a3a8a 100%);
+            color: #fff;
+            border-radius: 10px;
+            padding: 22px 24px;
+            display: flex; flex-direction: column; gap: 14px;
+            min-height: 180px;
+            box-shadow: 0 2px 12px rgba(40,30,93,0.15);
+        }
+        .dp-dash-review::before {
+            content: ''; position: absolute; top: -50%; right: -20%;
+            width: 240px; height: 240px;
+            background: radial-gradient(circle, rgba(255,200,87,0.22) 0%, transparent 65%);
+            pointer-events: none;
+        }
+        .dp-dash-review-stars {
+            display: flex; gap: 3px;
+            font-size: 26px; line-height: 1;
+            color: #FFC857;
+            text-shadow: 0 2px 10px rgba(255,200,87,0.4);
+            position: relative; z-index: 1;
+        }
+        .dp-dash-review-stars span {
+            display: inline-block;
+            animation: dp-dash-review-twinkle 2.4s ease-in-out infinite;
+        }
+        .dp-dash-review-stars span:nth-child(2) { animation-delay: 0.2s; }
+        .dp-dash-review-stars span:nth-child(3) { animation-delay: 0.4s; }
+        .dp-dash-review-stars span:nth-child(4) { animation-delay: 0.6s; }
+        .dp-dash-review-stars span:nth-child(5) { animation-delay: 0.8s; }
+        @keyframes dp-dash-review-twinkle {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.75; transform: scale(0.92); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .dp-dash-review-stars span { animation: none; }
+        }
+        .dp-dash-review-body { flex: 1; min-width: 0; position: relative; z-index: 1; display: flex; flex-direction: column; }
+        #dp_toolbox_dashboard .dp-dash-review h3.dp-dash-review-title,
+        .dp-dash-review .dp-dash-review-title {
+            margin: 0 0 6px; font-size: 17px; font-weight: 700; color: #fff !important;
+            line-height: 1.3;
+        }
+        .dp-dash-review-text {
+            margin: 0 0 14px; font-size: 13px; line-height: 1.55;
+            color: rgba(255,255,255,0.88);
+            flex: 1;
+        }
+        .dp-dash-review-text strong { color: #FFC857; font-weight: 600; }
+        .dp-dash-review-inline {
+            color: #FFC857;
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 2px;
+        }
+        .dp-dash-review-inline:hover { color: #fff; }
+        .dp-dash-review-actions {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            margin-top: auto;
+        }
+        .dp-dash-review-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #FFC857; color: #1a1235 !important;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px; font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(255,200,87,0.3);
+        }
+        .dp-dash-review-btn:hover {
+            background: #fff; color: #281E5D;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(255,200,87,0.4);
+        }
+        .dp-dash-review-dismiss {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: transparent;
+            color: rgba(255,255,255,0.65);
+            border: 1px solid rgba(255,255,255,0.18);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px; font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .dp-dash-review-dismiss:hover {
+            color: #fff;
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.05);
+        }
+        .dp-dash-review-dismiss .dashicons {
+            font-size: 14px; width: 14px; height: 14px; line-height: 14px;
+        }
+        .dp-dash-review.is-dismissed { display: none; }
     </style>
+    <script>
+    (function () {
+        document.querySelectorAll('.dp-dash-review-dismiss').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var card = btn.closest('.dp-dash-review');
+                if (!card) return;
+                if (!confirm('De review-kaart wordt verborgen op je eigen dashboard. Doorgaan?')) return;
+                btn.disabled = true;
+                var fd = new FormData();
+                fd.append('action', 'dp_toolbox_dashboard_review_dismiss');
+                fd.append('_wpnonce', card.dataset.nonce);
+                fetch(window.ajaxurl, { method: 'POST', body: fd, credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (json) {
+                        if (json && json.success) {
+                            card.classList.add('is-dismissed');
+                        } else {
+                            alert('Verbergen mislukt.');
+                            btn.disabled = false;
+                        }
+                    })
+                    .catch(function () { alert('Netwerkfout.'); btn.disabled = false; });
+            });
+        });
+    })();
+    </script>
     <?php
+} );
+
+/* ------------------------------------------------------------------
+ *  Sectie: Review aanvragen
+ *  Klant ziet een opvallende kaart met sterren en CTA naar
+ *  feedback.designpixels.nl. Verbergt zichzelf zodra de option
+ *  dp_toolbox_dashboard_review_given op true gezet wordt
+ *  (per-site, via admin-page of via quick-dismiss op de kaart zelf).
+ * ------------------------------------------------------------------ */
+function dp_toolbox_dashboard_section_review() {
+    $review_url = 'https://feedback.designpixels.nl';
+    $is_dp = function_exists( 'dp_toolbox_is_dp_user' ) && dp_toolbox_is_dp_user();
+    $nonce = wp_create_nonce( 'dp_toolbox_review_dismiss' );
+    ?>
+    <div class="dp-dash-review" data-nonce="<?php echo esc_attr( $nonce ); ?>">
+        <div class="dp-dash-review-stars" aria-hidden="true">
+            <span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span>
+        </div>
+        <div class="dp-dash-review-body">
+            <h3 class="dp-dash-review-title">Vond je de samenwerking fijn?</h3>
+            <p class="dp-dash-review-text">
+                Met een korte <a href="<?php echo esc_url( $review_url ); ?>" target="_blank" rel="noopener" class="dp-dash-review-inline">review</a>
+                help je mij enorm. Als bedankje krijg je <strong>6 strippen extra service tijd</strong> (30 minuten) cadeau.
+            </p>
+            <div class="dp-dash-review-actions">
+                <a href="<?php echo esc_url( $review_url ); ?>" target="_blank" rel="noopener" class="dp-dash-review-btn">
+                    Schrijf een review &rarr;
+                </a>
+                <?php if ( $is_dp ) : ?>
+                    <button type="button" class="dp-dash-review-dismiss" title="Verbergt deze kaart op je eigen dashboard. Per-user toggles staan in DP Toolbox → Dashboard Widgets.">
+                        <span class="dashicons dashicons-yes"></span>
+                        Verberg voor mij
+                    </button>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+    <?php
+}
+
+/* ------------------------------------------------------------------
+ *  AJAX: review-kaart verbergen voor de huidige user
+ *  Knop op de kaart is alleen zichtbaar voor @designpixels.nl, dus
+ *  effectief alleen DP. Zet user_meta op de huidige user.
+ * ------------------------------------------------------------------ */
+add_action( 'wp_ajax_dp_toolbox_dashboard_review_dismiss', function () {
+    if ( ! is_user_logged_in() ) {
+        wp_send_json_error( 'forbidden', 403 );
+    }
+    check_ajax_referer( 'dp_toolbox_review_dismiss', '_wpnonce' );
+    update_user_meta( get_current_user_id(), 'dp_toolbox_review_given', 1 );
+    wp_send_json_success();
+} );
+
+/* ------------------------------------------------------------------
+ *  AJAX: per-user review-status togglen vanuit de admin-pagina
+ *  Alleen DP-users mogen andermans status zetten.
+ * ------------------------------------------------------------------ */
+add_action( 'wp_ajax_dp_toolbox_dashboard_review_user_toggle', function () {
+    if ( ! function_exists( 'dp_toolbox_is_dp_user' ) || ! dp_toolbox_is_dp_user() ) {
+        wp_send_json_error( 'forbidden', 403 );
+    }
+    check_ajax_referer( 'dp_toolbox_review_user_toggle', '_wpnonce' );
+
+    $user_id = isset( $_POST['user_id'] ) ? absint( $_POST['user_id'] ) : 0;
+    $given   = ! empty( $_POST['given'] );
+
+    if ( ! $user_id || ! get_userdata( $user_id ) ) {
+        wp_send_json_error( 'unknown user', 400 );
+    }
+
+    if ( $given ) {
+        update_user_meta( $user_id, 'dp_toolbox_review_given', 1 );
+    } else {
+        delete_user_meta( $user_id, 'dp_toolbox_review_given' );
+    }
+    wp_send_json_success( [ 'user_id' => $user_id, 'given' => $given ] );
+} );
+
+/* ------------------------------------------------------------------
+ *  Migratie: oude site-wide review-flag → per-user meta
+ *  Loopt één keer; daarna vlag opslaan zodat hij niet opnieuw draait.
+ * ------------------------------------------------------------------ */
+add_action( 'admin_init', function () {
+    if ( get_option( 'dp_toolbox_review_per_user_migrated' ) ) return;
+
+    $was_given = (bool) get_option( 'dp_toolbox_dashboard_review_given', false );
+    if ( $was_given ) {
+        $users = get_users( [
+            'role__in' => [ 'administrator', 'editor', 'author', 'contributor' ],
+            'fields'   => [ 'ID' ],
+        ] );
+        foreach ( $users as $u ) {
+            update_user_meta( (int) $u->ID, 'dp_toolbox_review_given', 1 );
+        }
+    }
+
+    delete_option( 'dp_toolbox_dashboard_review_given' );
+    update_option( 'dp_toolbox_review_per_user_migrated', 1, false );
 } );
 
 if ( is_admin() ) {

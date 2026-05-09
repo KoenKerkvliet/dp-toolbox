@@ -1,18 +1,19 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-add_action( 'admin_menu', function () {
-    add_submenu_page(
-        'dp-toolbox',
-        'Quick Setup',
-        'Quick Setup',
-        'manage_options',
-        'dp-toolbox-quick-setup',
-        'dp_toolbox_quick_setup_page'
-    );
+/**
+ * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ */
+add_action( 'admin_init', function () {
+    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
+        dp_toolbox_register_module_settings( 'quick-setup', 'dp_toolbox_quick_setup_render_inline', [
+            'title'       => 'Quick Setup',
+            'description' => 'Configureer een nieuwe WordPress-installatie met één klik.',
+        ] );
+    }
 } );
 
-function dp_toolbox_quick_setup_page() {
+function dp_toolbox_quick_setup_render_inline() {
     $defaults = dp_toolbox_qs_get_defaults();
     $nonce    = wp_create_nonce( 'dp_toolbox_quick_setup' );
     $ajax_url = admin_url( 'admin-ajax.php' );
@@ -38,7 +39,6 @@ function dp_toolbox_quick_setup_page() {
         $current[ $key ] = get_option( $key, '' );
     }
 
-    dp_toolbox_page_start( 'Quick Setup', 'Configureer een nieuwe WordPress-installatie met één klik.' );
     ?>
     <style>
         .dp-qs-intro {
@@ -373,5 +373,4 @@ function dp_toolbox_quick_setup_page() {
     </script>
     <style>.dp-spin { animation: dp-spin 0.6s linear infinite; } @keyframes dp-spin { to { transform: rotate(360deg); } }</style>
     <?php
-    dp_toolbox_page_end();
 }

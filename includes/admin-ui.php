@@ -100,6 +100,13 @@ function dp_toolbox_page_start( $title, $description = '' ) {
 
             /* Description text */
             .dp-page-desc { margin-top: 0; color: #666; font-size: 13px; margin-bottom: 16px; }
+
+            /* Admin notices slot — keeps WP notices above our purple header */
+            .dp-page-notices:empty { display: none; }
+            .dp-page-notices > .notice,
+            .dp-page-notices > .updated,
+            .dp-page-notices > .error { margin: 8px 0 12px; }
+            .dp-page-notices > *:last-child { margin-bottom: 16px; }
         </style>
 
         <div class="dp-page-notices"></div>
@@ -111,24 +118,36 @@ function dp_toolbox_page_start( $title, $description = '' ) {
         </div>
         <div class="dp-page-content">
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var wrap = document.querySelector('.dp-page-wrap');
-        var target = wrap.querySelector('.dp-page-notices');
-        if (!wrap || !target) return;
-        // Move all admin notices above our header
-        var notices = wrap.parentNode.querySelectorAll('.notice, .updated, .error, .is-dismissible');
-        notices.forEach(function(n) {
-            if (!wrap.contains(n)) return;
-            target.appendChild(n);
-        });
-        // Also catch notices that WordPress injects as siblings
-        var prev = wrap.previousElementSibling;
-        while (prev && (prev.classList.contains('notice') || prev.classList.contains('updated') || prev.classList.contains('error'))) {
-            var p = prev.previousElementSibling;
-            target.appendChild(prev);
-            prev = p;
+    (function () {
+        function moveNotices() {
+            var wrap = document.querySelector('.dp-page-wrap');
+            if (!wrap) return;
+            var target = wrap.querySelector('.dp-page-notices');
+            if (!target) return;
+
+            // Catch all WP-style notices anywhere in the admin body, except those already inside our wrap.
+            var sel = '.notice, .updated, .error, div.update-nag, .notice-warning, .notice-error, .notice-success, .notice-info';
+            var body = document.getElementById('wpbody-content') || document.body;
+            body.querySelectorAll(sel).forEach(function (n) {
+                if (wrap.contains(n) && n.parentNode !== target) {
+                    // Inside wrap but not yet in our target slot — move to target.
+                    target.appendChild(n);
+                    return;
+                }
+                if (!wrap.contains(n)) {
+                    target.appendChild(n);
+                }
+            });
         }
-    });
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', moveNotices);
+        } else {
+            moveNotices();
+        }
+        // Late notices (some plugins inject after DOMContentLoaded).
+        window.addEventListener('load', moveNotices);
+    })();
     </script>
     <?php
 }
@@ -141,4 +160,46 @@ function dp_toolbox_page_end() {
         </div><!-- .dp-page-content -->
     </div><!-- .dp-page-wrap -->
     <?php
+}
+
+/* ------------------------------------------------------------------ */
+/*  Inline-settings registry                                           */
+/*  Modules opt-in: ipv add_submenu_page roepen ze deze API aan om     */
+/*  hun settings inline op de Modules-tab te tonen.                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Register a module's settings to render inline on the Modules tab.
+ *
+ * @param string   $slug     Module slug (matches modules/{slug}/).
+ * @param callable $callback Renders the settings content WITHOUT page wrapper.
+ * @param array    $args     Optional: ['title' => string, 'description' => string].
+ */
+function dp_toolbox_register_module_settings( $slug, $callback, $args = [] ) {
+    global $dp_toolbox_inline_settings;
+    if ( ! is_array( $dp_toolbox_inline_settings ) ) {
+        $dp_toolbox_inline_settings = [];
+    }
+    $dp_toolbox_inline_settings[ $slug ] = array_merge( [
+        'callback'    => $callback,
+        'title'       => '',
+        'description' => '',
+    ], $args );
+}
+
+/**
+ * Get all registered inline settings (or one by slug).
+ */
+function dp_toolbox_get_inline_settings( $slug = null ) {
+    global $dp_toolbox_inline_settings;
+    if ( ! is_array( $dp_toolbox_inline_settings ) ) return [];
+    if ( $slug === null ) return $dp_toolbox_inline_settings;
+    return $dp_toolbox_inline_settings[ $slug ] ?? null;
+}
+
+/**
+ * Check if a module has inline settings registered.
+ */
+function dp_toolbox_has_inline_settings( $slug ) {
+    return dp_toolbox_get_inline_settings( $slug ) !== null;
 }
