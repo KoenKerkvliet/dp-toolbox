@@ -38,11 +38,13 @@ add_action( 'plugins_loaded', function () {
     require_once DP_AP_PATH . 'includes/class-save-product.php';
     require_once DP_AP_PATH . 'includes/class-single-product.php';
     require_once DP_AP_PATH . 'includes/class-cart-flow.php';
+    require_once DP_AP_PATH . 'includes/class-loop-price.php';
     require_once DP_AP_PATH . 'includes/class-ajax.php';
 
     new DP_AP_Admin_Tab();
     new DP_AP_Save_Product();
     new DP_AP_Single_Product();
     new DP_AP_Cart_Flow();
+    new DP_AP_Loop_Price();
     new DP_AP_Ajax();
 }, 20 );

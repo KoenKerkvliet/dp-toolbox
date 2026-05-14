@@ -18,6 +18,7 @@ class DP_AP_Single_Product
             $product = wc_get_product(get_the_ID());
         }
         if (!$product instanceof WC_Product) return;
+        if (!$product->is_type('simple')) return;
 
         $saved = get_post_meta($product->get_id(), DP_AP_META_KEY, true);
         if (!is_array($saved) || empty($saved)) return;
@@ -53,6 +54,7 @@ class DP_AP_Single_Product
     {
         global $product;
         if (!$product instanceof WC_Product) return;
+        if (!$product->is_type('simple')) return;
 
         $saved = get_post_meta($product->get_id(), DP_AP_META_KEY, true);
         if (!is_array($saved) || empty($saved)) return;

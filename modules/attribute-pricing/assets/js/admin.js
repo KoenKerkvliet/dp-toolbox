@@ -205,10 +205,38 @@
     });
 
     /* ---------------------------------------------------------------- */
-    /*  Sortable attribute blocks                                        */
-    /*  Drag the header bar to reorder. The form's $_POST['dp_ap'] keys  */
-    /*  follow DOM order, so save = new order.                           */
+    /*  Sortable — attribute blocks AND value rows within an attribute   */
+    /*  The form's $_POST['dp_ap'] keys follow DOM order, so save =      */
+    /*  new order. Works automatically; no extra save step.              */
     /* ---------------------------------------------------------------- */
+    function initRowsSortable($scope) {
+        $scope = $scope && $scope.length ? $scope : $(document);
+        $scope.find('.dp-ap__attribute table tbody').each(function () {
+            var $tbody = $(this);
+            if ($tbody.data('dp-ap-rows-init')) return;
+            $tbody.data('dp-ap-rows-init', true);
+
+            $tbody.sortable({
+                items:                '> tr',
+                handle:               'td:first-child',
+                cancel:               'input, .dp-ap__delete-row',
+                placeholder:          'dp-ap__row-placeholder',
+                forcePlaceholderSize: true,
+                tolerance:            'pointer',
+                cursor:               'move',
+                opacity:              0.7,
+                helper: function (e, tr) {
+                    var $originals = tr.children();
+                    var $helper    = tr.clone();
+                    $helper.children().each(function (index) {
+                        $(this).width($originals.eq(index).width());
+                    });
+                    return $helper;
+                },
+            });
+        });
+    }
+
     $(function () {
         if (typeof $.fn.sortable !== 'function') return;
 
@@ -222,6 +250,14 @@
             cursor:               'move',
             opacity:              0.7,
         });
+
+        initRowsSortable();
+    });
+
+    /* Re-init row sortable after a fresh attribute block is appended. */
+    d.on('click', sel.addAttribute, function () {
+        // Defer one tick so the AJAX-appended HTML is in the DOM.
+        setTimeout(function () { initRowsSortable(); }, 50);
     });
 
 })(jQuery);

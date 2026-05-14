@@ -15,7 +15,7 @@ class DP_AP_Admin_Tab
         $tabs['dp_attribute_pricing'] = [
             'label'    => __('Extra options', 'dp-attribute-pricing'),
             'target'   => 'dp_attribute_pricing_panel',
-            'class'    => [],
+            'class'    => ['show_if_simple', 'hide_if_variable', 'hide_if_grouped', 'hide_if_external'],
             'priority' => 70,
         ];
         return $tabs;

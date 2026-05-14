@@ -16,6 +16,9 @@ class DP_AP_Cart_Flow
     {
         if (empty($_POST['dp_ap']) || !is_array($_POST['dp_ap'])) return $cart_item_data;
 
+        $product = wc_get_product($product_id);
+        if (!$product || !$product->is_type('simple')) return $cart_item_data;
+
         $product_meta = get_post_meta($product_id, DP_AP_META_KEY, true);
         if (!is_array($product_meta) || empty($product_meta)) return $cart_item_data;
 
