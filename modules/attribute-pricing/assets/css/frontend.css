@@ -1,0 +1,93 @@
+/* DP Attribute Pricing — frontend (single product) */
+
+.dp-ap-options {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 1.5em 0;
+    padding: 18px 0 4px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dp-ap-options__row {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.35fr) 1fr;
+    align-items: center;
+    gap: 14px;
+}
+
+@media (max-width: 600px) {
+    .dp-ap-options__row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+}
+
+.dp-ap-options__label {
+    margin: 0;
+    font-weight: 600;
+    font-size: 0.95em;
+    color: inherit;
+    line-height: 1.4;
+}
+
+.dp-ap-options__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.dp-ap-options__select {
+    width: 100%;
+    max-width: 100%;
+    padding: 11px 38px 11px 14px;
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    border-radius: 6px;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%23555' d='M6 8 0 2l1.4-1.4L6 5.2 10.6.6 12 2z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 11px 7px;
+    font-size: 0.95em;
+    line-height: 1.4;
+    color: inherit;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+
+.dp-ap-options__select:hover {
+    border-color: rgba(0, 0, 0, 0.35);
+}
+
+.dp-ap-options__select:focus {
+    outline: none;
+    border-color: rgba(0, 0, 0, 0.55);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.07);
+}
+
+.dp-ap-options__surcharge {
+    display: none;
+    align-self: flex-start;
+    padding: 3px 10px;
+    border-radius: 4px;
+    background-color: rgba(0, 130, 74, 0.10);
+    color: #00824a;
+    font-size: 0.82em;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+}
+
+.dp-ap-options__surcharge.is-visible {
+    display: inline-block;
+}
+
+/* When we updated the WC price, soften the transition so price changes don't flash. */
+.dp-ap-price-updated .woocommerce-Price-amount {
+    transition: opacity 0.15s ease;
+}

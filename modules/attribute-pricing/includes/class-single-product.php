@@ -6,6 +6,44 @@ class DP_AP_Single_Product
     public function __construct()
     {
         add_action('woocommerce_before_add_to_cart_button', [$this, 'render_selects']);
+        add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
+    }
+
+    public function enqueue_assets()
+    {
+        if (!function_exists('is_product') || !is_product()) return;
+
+        global $product;
+        if (!$product instanceof WC_Product) {
+            $product = wc_get_product(get_the_ID());
+        }
+        if (!$product instanceof WC_Product) return;
+
+        $saved = get_post_meta($product->get_id(), DP_AP_META_KEY, true);
+        if (!is_array($saved) || empty($saved)) return;
+
+        wp_enqueue_style(
+            'dp-ap-frontend',
+            DP_AP_URL . 'assets/css/frontend.css',
+            [],
+            DP_AP_VERSION
+        );
+        wp_enqueue_script(
+            'dp-ap-frontend',
+            DP_AP_URL . 'assets/js/frontend.js',
+            [],
+            DP_AP_VERSION,
+            true
+        );
+
+        wp_localize_script('dp-ap-frontend', 'DPAttributePricing', [
+            'basePrice'   => (float) $product->get_price(),
+            'currency'    => html_entity_decode(get_woocommerce_currency_symbol(), ENT_QUOTES, 'UTF-8'),
+            'decimalSep'  => wc_get_price_decimal_separator(),
+            'thousandSep' => wc_get_price_thousand_separator(),
+            'decimals'    => (int) wc_get_price_decimals(),
+            'symbolPos'   => get_option('woocommerce_currency_pos', 'left'),
+        ]);
     }
 
     public function render_selects()
@@ -16,7 +54,11 @@ class DP_AP_Single_Product
         $saved = get_post_meta($product->get_id(), DP_AP_META_KEY, true);
         if (!is_array($saved) || empty($saved)) return;
 
-        echo '<table class="variations dp-ap-variations" cellspacing="0" role="presentation"><tbody>';
+        printf(
+            '<div class="dp-ap-options" data-base-price="%s">',
+            esc_attr($product->get_price())
+        );
+
         foreach ($saved as $taxonomy_name => $rows) {
             if (!is_array($rows) || empty($rows)) continue;
 
@@ -25,10 +67,18 @@ class DP_AP_Single_Product
 
             $field_id = 'dp-ap-' . sanitize_html_class($taxonomy_name);
 
+            echo '<div class="dp-ap-options__row">';
+
             printf(
-                '<tr><th class="label"><label for="%1$s">%2$s</label></th><td class="value"><select id="%1$s" class="dp-ap-select" name="dp_ap[%3$s]">',
+                '<label for="%s" class="dp-ap-options__label">%s</label>',
                 esc_attr($field_id),
-                esc_html($tax_obj->labels->singular_name),
+                esc_html($tax_obj->labels->singular_name)
+            );
+
+            echo '<div class="dp-ap-options__field">';
+            printf(
+                '<select id="%s" class="dp-ap-options__select" name="dp_ap[%s]">',
+                esc_attr($field_id),
                 esc_attr($taxonomy_name)
             );
 
@@ -47,8 +97,13 @@ class DP_AP_Single_Product
                 );
             }
 
-            echo '</select></td></tr>';
+            echo '</select>';
+            echo '<span class="dp-ap-options__surcharge" aria-live="polite"></span>';
+            echo '</div>';
+
+            echo '</div>';
         }
-        echo '</tbody></table>';
+
+        echo '</div>';
     }
 }
