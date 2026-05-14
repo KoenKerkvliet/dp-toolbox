@@ -204,4 +204,24 @@
         $wrapper.remove();
     });
 
+    /* ---------------------------------------------------------------- */
+    /*  Sortable attribute blocks                                        */
+    /*  Drag the header bar to reorder. The form's $_POST['dp_ap'] keys  */
+    /*  follow DOM order, so save = new order.                           */
+    /* ---------------------------------------------------------------- */
+    $(function () {
+        if (typeof $.fn.sortable !== 'function') return;
+
+        $(sel.wrapper).sortable({
+            items:                '> ' + sel.attribute,
+            handle:               '.dp-ap__attribute-head',
+            cancel:               sel.removeAttribute,
+            placeholder:          'dp-ap__attribute-placeholder',
+            forcePlaceholderSize: true,
+            tolerance:            'pointer',
+            cursor:               'move',
+            opacity:              0.7,
+        });
+    });
+
 })(jQuery);

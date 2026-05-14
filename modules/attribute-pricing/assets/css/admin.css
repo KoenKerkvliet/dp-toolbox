@@ -51,9 +51,41 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
+    padding: 4px 6px;
+    margin: -4px -6px 12px;
+    border-radius: 4px;
     font-size: 16px;
     font-weight: 600;
     color: #1d2327;
+    cursor: move;
+    transition: background-color 0.15s ease;
+}
+
+#dp_attribute_pricing_panel .dp-ap__attribute-head:hover {
+    background-color: rgba(40, 30, 93, 0.06);
+}
+
+#dp_attribute_pricing_panel .dp-ap__attribute-head::before {
+    content: "⋮⋮";
+    display: inline-block;
+    margin-right: 10px;
+    color: #999;
+    font-size: 14px;
+    letter-spacing: -2px;
+    line-height: 1;
+    transform: translateY(-1px);
+}
+
+#dp_attribute_pricing_panel .ui-sortable-helper {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+#dp_attribute_pricing_panel .dp-ap__attribute-placeholder {
+    background-color: rgba(40, 30, 93, 0.05);
+    border: 2px dashed rgba(40, 30, 93, 0.35);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    visibility: visible !important;
 }
 
 #dp_attribute_pricing_panel .dp-ap__remove-attribute {

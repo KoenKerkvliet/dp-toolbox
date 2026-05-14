@@ -125,17 +125,20 @@ class DP_AP_Admin_Tab
         $screen = get_current_screen();
         if (!$screen || $screen->id !== 'product') return;
 
+        $css_path = DP_AP_PATH . 'assets/css/admin.css';
+        $js_path  = DP_AP_PATH . 'assets/js/admin.js';
+
         wp_enqueue_style(
             'dp-ap-admin',
             DP_AP_URL . 'assets/css/admin.css',
             [],
-            DP_AP_VERSION
+            file_exists($css_path) ? filemtime($css_path) : DP_AP_VERSION
         );
         wp_enqueue_script(
             'dp-ap-admin',
             DP_AP_URL . 'assets/js/admin.js',
-            ['jquery'],
-            DP_AP_VERSION,
+            ['jquery', 'jquery-ui-sortable'],
+            file_exists($js_path) ? filemtime($js_path) : DP_AP_VERSION,
             true
         );
         wp_localize_script('dp-ap-admin', 'DPAttributePricing', [

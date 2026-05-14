@@ -22,17 +22,20 @@ class DP_AP_Single_Product
         $saved = get_post_meta($product->get_id(), DP_AP_META_KEY, true);
         if (!is_array($saved) || empty($saved)) return;
 
+        $css_path = DP_AP_PATH . 'assets/css/frontend.css';
+        $js_path  = DP_AP_PATH . 'assets/js/frontend.js';
+
         wp_enqueue_style(
             'dp-ap-frontend',
             DP_AP_URL . 'assets/css/frontend.css',
             [],
-            DP_AP_VERSION
+            file_exists($css_path) ? filemtime($css_path) : DP_AP_VERSION
         );
         wp_enqueue_script(
             'dp-ap-frontend',
             DP_AP_URL . 'assets/js/frontend.js',
             [],
-            DP_AP_VERSION,
+            file_exists($js_path) ? filemtime($js_path) : DP_AP_VERSION,
             true
         );
 
