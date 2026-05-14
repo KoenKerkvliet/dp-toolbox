@@ -18,6 +18,9 @@ Design Pixels gereedschapskist voor WordPress. Een modulaire verzameling van sit
 - **Maintenance Mode** — Site offline voor bezoekers
 - **Revision Limiter** — Beperk aantal post-revisies
 - **Attribute Pricing** (WooCommerce) — Extra options tab op simpele producten met meerprijs per attribuut-waarde, zonder variaties
+- **Free Shipping Bar** (WooCommerce) — Voortgangsbalk "Nog €X tot gratis verzending" in cart en mini-cart
+- **Low Stock Urgency** (WooCommerce) — "Nog X stuks beschikbaar!" indicator op de productpagina bij lage voorraad
+- **Sticky Add to Cart** (WooCommerce) — Vaste add-to-cart bar onderin op mobiel zodra de hoofdknop uit beeld scrollt
 - ... en meer
 
 Zie de volledige lijst op DP Toolbox → Modules na installatie.

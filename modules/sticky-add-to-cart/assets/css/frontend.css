@@ -1,0 +1,99 @@
+/* DP Toolbox — Sticky Add to Cart (mobile only) */
+
+.dp-sac {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 999;
+    background-color: #fff;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.06);
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+    padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 768px) {
+    .dp-sac {
+        display: block;
+    }
+}
+
+.dp-sac.is-visible {
+    transform: translateY(0);
+}
+
+.dp-sac__inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 100%;
+}
+
+.dp-sac__thumb {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.dp-sac__info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dp-sac__name {
+    font-size: 0.82em;
+    font-weight: 600;
+    color: #1a1a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.dp-sac__price {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #1a1a1a;
+    line-height: 1.2;
+}
+
+.dp-sac__price del {
+    opacity: 0.6;
+    margin-right: 4px;
+}
+
+.dp-sac__btn {
+    padding: 10px 16px;
+    background-color: #1a1a1a;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9em;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease;
+    font-family: inherit;
+}
+
+.dp-sac__btn:hover,
+.dp-sac__btn:focus {
+    background-color: #333;
+    outline: none;
+}
+
+.dp-sac__out {
+    color: #999;
+    font-size: 0.85em;
+    font-style: italic;
+    flex-shrink: 0;
+}

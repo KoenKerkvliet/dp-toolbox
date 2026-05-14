@@ -330,6 +330,9 @@ function dp_toolbox_render_modules_tab() {
         'plugin-installer'     => 'tools',
         'thumbnails-manager'   => 'media',
         'attribute-pricing'    => 'woocommerce',
+        'free-shipping-bar'    => 'woocommerce',
+        'low-stock-urgency'    => 'woocommerce',
+        'sticky-add-to-cart'   => 'woocommerce',
     ];
 
     $grouped = [];

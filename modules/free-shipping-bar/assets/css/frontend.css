@@ -1,0 +1,48 @@
+/* DP Toolbox — Free Shipping Bar */
+
+.dp-fsb {
+    margin: 0 0 18px;
+    padding: 12px 16px;
+    background-color: rgba(0, 0, 0, 0.035);
+    border-radius: 6px;
+    font-size: 0.92em;
+    line-height: 1.4;
+}
+
+.dp-fsb__message {
+    margin-bottom: 8px;
+    color: inherit;
+}
+
+.dp-fsb__icon {
+    display: inline-block;
+    margin-right: 4px;
+}
+
+.dp-fsb__track {
+    height: 6px;
+    background-color: rgba(0, 0, 0, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.dp-fsb__fill {
+    height: 100%;
+    background-color: #00824a;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    min-width: 2%;
+}
+
+.dp-fsb--reached .dp-fsb__message {
+    color: #00824a;
+    font-weight: 600;
+}
+
+/* Mini-cart variant — tighter spacing inside cart widgets/drawers */
+.widget_shopping_cart_content .dp-fsb,
+.woocommerce-mini-cart .dp-fsb {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    font-size: 0.85em;
+}
