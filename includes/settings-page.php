@@ -291,12 +291,13 @@ function dp_toolbox_render_modules_tab() {
     $notices = dp_toolbox_get_module_notices();
 
     $categories = [
-        'dashboard' => [ 'label' => 'Dashboard',          'icon' => 'dashicons-dashboard' ],
-        'admin'     => [ 'label' => 'Admin & Navigatie',   'icon' => 'dashicons-admin-generic' ],
-        'security'  => [ 'label' => 'Beveiliging',         'icon' => 'dashicons-shield' ],
-        'email'     => [ 'label' => 'E-mail',              'icon' => 'dashicons-email-alt' ],
-        'media'     => [ 'label' => 'Media',               'icon' => 'dashicons-admin-media' ],
-        'tools'     => [ 'label' => 'Tools',               'icon' => 'dashicons-admin-tools' ],
+        'dashboard'   => [ 'label' => 'Dashboard',          'icon' => 'dashicons-dashboard' ],
+        'admin'       => [ 'label' => 'Admin & Navigatie',   'icon' => 'dashicons-admin-generic' ],
+        'security'    => [ 'label' => 'Beveiliging',         'icon' => 'dashicons-shield' ],
+        'email'       => [ 'label' => 'E-mail',              'icon' => 'dashicons-email-alt' ],
+        'media'       => [ 'label' => 'Media',               'icon' => 'dashicons-admin-media' ],
+        'tools'       => [ 'label' => 'Tools',               'icon' => 'dashicons-admin-tools' ],
+        'woocommerce' => [ 'label' => 'WooCommerce',         'icon' => 'dashicons-cart' ],
     ];
 
     $module_categories = [
@@ -328,6 +329,7 @@ function dp_toolbox_render_modules_tab() {
         'search-replace'       => 'tools',
         'plugin-installer'     => 'tools',
         'thumbnails-manager'   => 'media',
+        'attribute-pricing'    => 'woocommerce',
     ];
 
     $grouped = [];

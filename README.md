@@ -17,7 +17,7 @@ Design Pixels gereedschapskist voor WordPress. Een modulaire verzameling van sit
 - **Custom Login URL** — Verplaats wp-login.php naar eigen URL
 - **Maintenance Mode** — Site offline voor bezoekers
 - **Revision Limiter** — Beperk aantal post-revisies
-- **WooCommerce** — Verzameling WC-features (Attribute Pricing, etc.) — per feature aan/uit
+- **Attribute Pricing** (WooCommerce) — Extra options tab op simpele producten met meerprijs per attribuut-waarde, zonder variaties
 - ... en meer
 
 Zie de volledige lijst op DP Toolbox → Modules na installatie.
