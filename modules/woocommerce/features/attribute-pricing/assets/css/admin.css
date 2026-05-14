@@ -1,0 +1,156 @@
+/* DP Attribute Pricing — admin panel */
+
+#dp_attribute_pricing_panel {
+    padding: 9px 12px 12px;
+}
+
+#dp_attribute_pricing_panel .dp-ap__picker {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    margin-bottom: 12px;
+    background-color: #f0f0f1;
+    border: 1px solid #dcdcde;
+}
+
+#dp_attribute_pricing_panel .dp-ap__picker .form-field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+}
+
+#dp_attribute_pricing_panel .dp-ap__picker .form-field label {
+    width: auto;
+    font-weight: 600;
+    margin: 0;
+}
+
+#dp_attribute_pricing_panel .dp-ap__picker .form-field select {
+    width: 240px;
+    float: none;
+    margin: 0;
+}
+
+#dp_attribute_pricing_panel .dp-ap__wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#dp_attribute_pricing_panel .dp-ap__attribute {
+    padding: 16px 12px;
+    background-color: #fafafa;
+    border: 1px solid #e0e0e0;
+}
+
+#dp_attribute_pricing_panel .dp-ap__attribute-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+#dp_attribute_pricing_panel .dp-ap__remove-attribute {
+    background-color: #f3d8d8;
+    color: #b32d2e;
+    border: 1px solid #d99d9d;
+    border-radius: 4px;
+    padding: 2px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+#dp_attribute_pricing_panel .dp-ap__remove-attribute:hover {
+    background-color: #ecbcbc;
+}
+
+#dp_attribute_pricing_panel .dp-ap__table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff;
+}
+
+#dp_attribute_pricing_panel .dp-ap__table th,
+#dp_attribute_pricing_panel .dp-ap__table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+#dp_attribute_pricing_panel .dp-ap__table thead th {
+    background-color: #fff;
+    border-bottom: 2px solid #c3c4c7;
+    font-weight: 600;
+}
+
+#dp_attribute_pricing_panel .dp-ap__table tbody tr:nth-child(even) {
+    background-color: #f6f7f7;
+}
+
+#dp_attribute_pricing_panel .dp-ap__table td:nth-child(2) input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#dp_attribute_pricing_panel .dp-ap__table td:last-child {
+    width: 80px;
+    text-align: right;
+}
+
+#dp_attribute_pricing_panel .dp-ap__delete-row {
+    display: inline-block;
+    padding: 2px 12px;
+    border-radius: 4px;
+    background-color: #d63638;
+    color: #fff;
+    cursor: pointer;
+    user-select: none;
+}
+
+#dp_attribute_pricing_panel .dp-ap__delete-row:hover {
+    background-color: #b32d2e;
+}
+
+#dp_attribute_pricing_panel .dp-ap__add-row-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+#dp_attribute_pricing_panel .dp-ap__add-row-buttons button,
+#dp_attribute_pricing_panel .dp-ap__input-wrapper button,
+#dp_attribute_pricing_panel .dp-ap__select-wrapper button {
+    background-color: #2271b1;
+    color: #fff;
+    border: 1px solid #2271b1;
+    border-radius: 4px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+#dp_attribute_pricing_panel .dp-ap__add-row-buttons button:hover,
+#dp_attribute_pricing_panel .dp-ap__input-wrapper button:hover,
+#dp_attribute_pricing_panel .dp-ap__select-wrapper button:hover {
+    background-color: #135e96;
+}
+
+#dp_attribute_pricing_panel .dp-ap__input-wrapper,
+#dp_attribute_pricing_panel .dp-ap__select-wrapper {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+#dp_attribute_pricing_panel .dp-ap__input-wrapper input,
+#dp_attribute_pricing_panel .dp-ap__select-wrapper select {
+    max-width: 400px;
+    flex: 1;
+}
