@@ -69,12 +69,14 @@ function dp_toolbox_wc_render_inline() {
             $is_on = in_array( $slug, $enabled, true );
         ?>
             <div class="dp-wc-card <?php echo $is_on ? 'is-on' : 'is-off'; ?>">
-                <label class="dp-toggle" style="flex-shrink:0">
+                <div class="dp-toggle">
                     <input type="checkbox"
+                           id="dp-wc-<?php echo esc_attr( $slug ); ?>"
                            name="dp_toolbox_wc_features[]"
                            value="<?php echo esc_attr( $slug ); ?>"
-                           <?php checked( $is_on ); ?> />
-                </label>
+                           <?php checked( $is_on ); ?>>
+                    <label for="dp-wc-<?php echo esc_attr( $slug ); ?>"></label>
+                </div>
                 <div class="dp-wc-info">
                     <h3><?php echo esc_html( $feature['name'] ); ?></h3>
                     <p><?php echo esc_html( $feature['description'] ); ?></p>
