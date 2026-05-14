@@ -1,26 +1,20 @@
 /* DP Attribute Pricing — frontend (single product) */
 
 .dp-ap-options {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px 22px;
     margin: 1.5em 0;
-    padding: 18px 0 4px;
+    padding: 20px 0 22px;
     border-top: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .dp-ap-options__row {
-    display: grid;
-    grid-template-columns: minmax(110px, 0.35fr) 1fr;
-    align-items: center;
-    gap: 14px;
-}
-
-@media (max-width: 600px) {
-    .dp-ap-options__row {
-        grid-template-columns: 1fr;
-        gap: 4px;
-    }
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
 }
 
 .dp-ap-options__label {
@@ -29,13 +23,6 @@
     font-size: 0.95em;
     color: inherit;
     line-height: 1.4;
-}
-
-.dp-ap-options__field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-width: 0;
 }
 
 .dp-ap-options__select {
@@ -87,7 +74,6 @@
     display: inline-block;
 }
 
-/* When we updated the WC price, soften the transition so price changes don't flash. */
 .dp-ap-price-updated .woocommerce-Price-amount {
     transition: opacity 0.15s ease;
 }

@@ -54,10 +54,7 @@ class DP_AP_Single_Product
         $saved = get_post_meta($product->get_id(), DP_AP_META_KEY, true);
         if (!is_array($saved) || empty($saved)) return;
 
-        printf(
-            '<div class="dp-ap-options" data-base-price="%s">',
-            esc_attr($product->get_price())
-        );
+        echo '<div class="dp-ap-options">';
 
         foreach ($saved as $taxonomy_name => $rows) {
             if (!is_array($rows) || empty($rows)) continue;
@@ -75,7 +72,6 @@ class DP_AP_Single_Product
                 esc_html($tax_obj->labels->singular_name)
             );
 
-            echo '<div class="dp-ap-options__field">';
             printf(
                 '<select id="%s" class="dp-ap-options__select" name="dp_ap[%s]">',
                 esc_attr($field_id),
@@ -99,7 +95,6 @@ class DP_AP_Single_Product
 
             echo '</select>';
             echo '<span class="dp-ap-options__surcharge" aria-live="polite"></span>';
-            echo '</div>';
 
             echo '</div>';
         }

@@ -5,9 +5,10 @@ class DP_AP_Cart_Flow
 {
     public function __construct()
     {
-        add_filter('woocommerce_add_cart_item_data', [$this, 'capture_cart_item_data'], 25, 2);
-        add_filter('woocommerce_get_item_data', [$this, 'display_in_cart'], 25, 2);
-        add_action('woocommerce_before_calculate_totals', [$this, 'apply_price'], 25, 1);
+        add_filter('woocommerce_add_cart_item_data',         [$this, 'capture_cart_item_data'], 25, 2);
+        add_filter('woocommerce_add_cart_item',              [$this, 'apply_price_on_add'],     25, 1);
+        add_filter('woocommerce_get_cart_item_from_session', [$this, 'restore_from_session'],   25, 2);
+        add_filter('woocommerce_get_item_data',              [$this, 'display_in_cart'],        25, 2);
         add_action('woocommerce_checkout_create_order_line_item', [$this, 'save_order_item_meta'], 10, 4);
     }
 
@@ -60,20 +61,41 @@ class DP_AP_Cart_Flow
         return $cart_item_data;
     }
 
-    public function apply_price($cart)
+    /**
+     * Fires right after an item is added to the cart.
+     * We bump the price of the cart item's product BEFORE any subsequent
+     * rendering happens, so the per-line "Prijs" / "Subtotaal" columns show
+     * the surcharged price (not just the cart-totals widget).
+     */
+    public function apply_price_on_add($cart_item)
     {
-        if (is_admin() && !defined('DOING_AJAX')) return;
-        if (!$cart instanceof WC_Cart) return;
+        if (empty($cart_item['dp_ap_price'])) return $cart_item;
+        if (!isset($cart_item['data']) || !$cart_item['data'] instanceof WC_Product) return $cart_item;
 
-        foreach ($cart->get_cart() as $cart_item) {
-            if (empty($cart_item['dp_ap_price'])) continue;
+        $base = (float) $cart_item['data']->get_price();
+        $cart_item['data']->set_price($base + (float) $cart_item['dp_ap_price']);
+        return $cart_item;
+    }
 
-            $base_product = wc_get_product($cart_item['data']->get_id());
-            if (!$base_product) continue;
+    /**
+     * Fires when WC rebuilds the cart from session on every page load.
+     * Re-applies the price on the freshly-loaded product instance and
+     * ensures our keys survive session round-trips.
+     */
+    public function restore_from_session($cart_item, $values)
+    {
+        if (empty($values['dp_ap_price'])) return $cart_item;
+        if (!isset($cart_item['data']) || !$cart_item['data'] instanceof WC_Product) return $cart_item;
 
-            $base_price = (float) $base_product->get_price();
-            $cart_item['data']->set_price($base_price + (float) $cart_item['dp_ap_price']);
+        if (isset($values['dp_ap'])) {
+            $cart_item['dp_ap'] = $values['dp_ap'];
         }
+        $cart_item['dp_ap_price'] = (float) $values['dp_ap_price'];
+
+        $base = (float) $cart_item['data']->get_price();
+        $cart_item['data']->set_price($base + (float) $cart_item['dp_ap_price']);
+
+        return $cart_item;
     }
 
     public function display_in_cart($cart_data, $cart_item)
