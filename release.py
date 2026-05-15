@@ -12,12 +12,18 @@ Wat het doet (in volgorde):
     1. Leest huidige versie uit dp-toolbox.php
     2. Bepaalt nieuwe versie
     3. Update versie in plugin-header + DP_TOOLBOX_VERSION constante
-    4. Bouwt ZIP in ../dp-toolbox.zip
-    5. Archiveert vorige versie naar ../DP toolbox/Archief/<oude>/
-       en plaatst nieuwe ZIP in ../DP toolbox/<nieuwe>/dp-toolbox-<nieuwe>.zip
+    4. Bouwt ZIP rechtstreeks in ../../<nieuwe>/dp-toolbox-<nieuwe>.zip
+    5. Archiveert vorige versie-folder naar ../../Archief/<oude>/
     6. git add -A && git commit -m "release X.Y.Z"
     7. git tag vX.Y.Z
     8. git push origin main && git push origin vX.Y.Z
+
+Mapstructuur:
+    Plugins/
+      DP toolbox/
+        Werkmap/dp-toolbox/             ← deze werkmap (git)
+        <huidige-versie>/dp-toolbox-X.Y.Z.zip
+        Archief/<oude-versie>/dp-toolbox-X.Y.Z.zip
 
 Stopt bij elke fout — niets wordt half gedaan.
 """
@@ -31,9 +37,11 @@ import zipfile
 
 PLUGIN_DIR     = os.path.dirname(os.path.abspath(__file__))
 PLUGIN_FILE    = os.path.join(PLUGIN_DIR, 'dp-toolbox.php')
-PLUGINS_ROOT   = os.path.dirname(PLUGIN_DIR)
-ROOT_ZIP       = os.path.join(PLUGINS_ROOT, 'dp-toolbox.zip')
-ARCHIVE_ROOT   = os.path.join(PLUGINS_ROOT, 'DP toolbox')
+# PLUGIN_DIR   = .../Plugins/DP toolbox/Werkmap/dp-toolbox
+# WERKMAP_DIR  = .../Plugins/DP toolbox/Werkmap
+# ARCHIVE_ROOT = .../Plugins/DP toolbox
+WERKMAP_DIR    = os.path.dirname(PLUGIN_DIR)
+ARCHIVE_ROOT   = os.path.dirname(WERKMAP_DIR)
 ZIP_SKIP_PREFIXES = ('.b64', '.deploy', '.dep_admin', '.tmp', '.refactor_plan', '.git')
 
 
@@ -86,11 +94,11 @@ def bump(version, kind):
     return f"{major}.{minor}.{patch}"
 
 
-def build_zip():
-    if os.path.exists(ROOT_ZIP):
-        os.remove(ROOT_ZIP)
+def build_zip(target_path):
+    if os.path.exists(target_path):
+        os.remove(target_path)
     count = 0
-    with zipfile.ZipFile(ROOT_ZIP, 'w', zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(target_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(PLUGIN_DIR):
             # Skip .git directory entirely
             if '.git' in root.split(os.sep): continue
@@ -100,27 +108,21 @@ def build_zip():
                 arc = os.path.relpath(full, os.path.dirname(PLUGIN_DIR)).replace(os.sep, '/')
                 zf.write(full, arc)
                 count += 1
-    return count, os.path.getsize(ROOT_ZIP)
+    return count, os.path.getsize(target_path)
 
 
-def archive_versions(old, new):
-    """Verplaats vorige losse versiemap naar Archief/, en plaats de nieuwe ZIP."""
+def archive_previous(old):
+    """Verplaats vorige losse versie-map naar Archief/."""
+    old_loose = os.path.join(ARCHIVE_ROOT, old)
+    if not os.path.exists(old_loose):
+        return
     archief_dir = os.path.join(ARCHIVE_ROOT, 'Archief')
     os.makedirs(archief_dir, exist_ok=True)
-
-    old_loose = os.path.join(ARCHIVE_ROOT, old)
-    if os.path.exists(old_loose):
-        old_archived = os.path.join(archief_dir, old)
-        if os.path.exists(old_archived):
-            shutil.rmtree(old_archived)
-        shutil.move(old_loose, old_archived)
-        print(f"  archived {old} -> Archief/")
-
-    new_dir = os.path.join(ARCHIVE_ROOT, new)
-    os.makedirs(new_dir, exist_ok=True)
-    new_zip = os.path.join(new_dir, f'dp-toolbox-{new}.zip')
-    shutil.copy2(ROOT_ZIP, new_zip)
-    print(f"  copied to {new_zip}")
+    old_archived = os.path.join(archief_dir, old)
+    if os.path.exists(old_archived):
+        shutil.rmtree(old_archived)
+    shutil.move(old_loose, old_archived)
+    print(f"  archived {old} -> Archief/")
 
 
 def main():
@@ -139,12 +141,15 @@ def main():
     print("[1/5] Versie bijwerken in dp-toolbox.php")
     write_version(new)
 
-    print("[2/5] ZIP bouwen")
-    n, size = build_zip()
-    print(f"  {n} entries, {size:,} bytes")
+    print("[2/5] Vorige versie archiveren")
+    archive_previous(current)
 
-    print("[3/5] Archief bijwerken")
-    archive_versions(current, new)
+    print("[3/5] ZIP bouwen")
+    new_dir = os.path.join(ARCHIVE_ROOT, new)
+    os.makedirs(new_dir, exist_ok=True)
+    new_zip = os.path.join(new_dir, f'dp-toolbox-{new}.zip')
+    n, size = build_zip(new_zip)
+    print(f"  {n} entries, {size:,} bytes -> {new_zip}")
 
     print("[4/5] Git commit + tag")
     run(['git', 'add', '-A'])
