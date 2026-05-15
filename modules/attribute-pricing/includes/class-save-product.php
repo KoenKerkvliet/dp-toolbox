@@ -21,6 +21,7 @@ class DP_AP_Save_Product
 
         if (empty($_POST['dp_ap']) || !is_array($_POST['dp_ap'])) {
             update_post_meta($product_id, DP_AP_META_KEY, '');
+            DP_AP_Sync_To_WC::sync_product($product_id);
             return;
         }
 
@@ -50,5 +51,6 @@ class DP_AP_Save_Product
         }
 
         update_post_meta($product_id, DP_AP_META_KEY, $sanitized);
+        DP_AP_Sync_To_WC::sync_product($product_id);
     }
 }

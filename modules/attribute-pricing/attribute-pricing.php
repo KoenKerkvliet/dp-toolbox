@@ -40,6 +40,7 @@ add_action( 'plugins_loaded', function () {
     require_once DP_AP_PATH . 'includes/class-cart-flow.php';
     require_once DP_AP_PATH . 'includes/class-loop-price.php';
     require_once DP_AP_PATH . 'includes/class-ajax.php';
+    require_once DP_AP_PATH . 'includes/class-sync-to-wc.php';
 
     new DP_AP_Admin_Tab();
     new DP_AP_Save_Product();
