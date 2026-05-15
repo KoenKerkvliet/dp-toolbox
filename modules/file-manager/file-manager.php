@@ -1,8 +1,8 @@
 <?php
 /**
  * Module Name: File Manager
- * Description: Beheer bestanden op de server vanuit WordPress — bekijken, bewerken en uploaden.
- * Version: 1.0.0
+ * Description: Beheer bestanden op de server vanuit WordPress — bekijken, bewerken, uploaden en ZIPs uitpakken.
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -340,6 +340,96 @@ add_action( 'wp_ajax_dp_toolbox_fm_upload', function () {
     }
 
     wp_send_json_success( [ 'message' => 'Bestand geüpload.' ] );
+} );
+
+/* ------------------------------------------------------------------ */
+/*  AJAX: unzip archive in-place                                       */
+/* ------------------------------------------------------------------ */
+
+add_action( 'wp_ajax_dp_toolbox_fm_unzip', function () {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( 'Geen toestemming.' );
+    }
+    check_ajax_referer( 'dp_toolbox_file_manager', 'nonce' );
+
+    $path = $_POST['path'] ?? '';
+    $safe = dp_toolbox_fm_safe_path( $path );
+
+    if ( ! $safe || ! is_file( $safe ) ) {
+        wp_send_json_error( 'Bestand niet gevonden.' );
+    }
+    if ( strtolower( pathinfo( $safe, PATHINFO_EXTENSION ) ) !== 'zip' ) {
+        wp_send_json_error( 'Alleen .zip-bestanden kunnen uitgepakt worden.' );
+    }
+    if ( ! class_exists( 'ZipArchive' ) ) {
+        wp_send_json_error( 'ZipArchive is niet beschikbaar op deze server.' );
+    }
+
+    $dest = dirname( $safe );
+    $zip  = new ZipArchive();
+    if ( $zip->open( $safe ) !== true ) {
+        wp_send_json_error( 'Kon ZIP niet openen.' );
+    }
+
+    // Zip-slip protection: reject entries with .. or absolute paths
+    for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+        $name = $zip->getNameIndex( $i );
+        if ( $name === false ) continue;
+        // Reject directory traversal, absolute paths, drive letters
+        if ( strpos( $name, '..' ) !== false || strpos( $name, ':' ) !== false || strpos( $name, "\0" ) !== false || $name[0] === '/' || $name[0] === '\\' ) {
+            $zip->close();
+            wp_send_json_error( 'ZIP bevat onveilige paden en wordt geweigerd.' );
+        }
+    }
+
+    // Detect top-level entries (for overwrite handling + reporting)
+    $top_level_dirs  = [];
+    $top_level_files = [];
+    for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+        $name = $zip->getNameIndex( $i );
+        if ( $name === false ) continue;
+        $slash_pos = strpos( $name, '/' );
+        if ( $slash_pos !== false ) {
+            $top_level_dirs[ substr( $name, 0, $slash_pos ) ] = true;
+        } elseif ( $name !== '' ) {
+            $top_level_files[ $name ] = true;
+        }
+    }
+
+    // Remove existing top-level dirs first so extract is a clean overwrite (mimics WP plugin install behavior)
+    foreach ( array_keys( $top_level_dirs ) as $top ) {
+        $target_path = $dest . DIRECTORY_SEPARATOR . $top;
+        if ( ! is_dir( $target_path ) ) continue;
+        $it    = new RecursiveDirectoryIterator( $target_path, RecursiveDirectoryIterator::SKIP_DOTS );
+        $files = new RecursiveIteratorIterator( $it, RecursiveIteratorIterator::CHILD_FIRST );
+        foreach ( $files as $file ) {
+            if ( $file->isDir() ) {
+                @rmdir( $file->getRealPath() );
+            } else {
+                @unlink( $file->getRealPath() );
+            }
+        }
+        @rmdir( $target_path );
+    }
+
+    if ( ! $zip->extractTo( $dest ) ) {
+        $zip->close();
+        wp_send_json_error( 'Uitpakken mislukt.' );
+    }
+    $zip->close();
+
+    $dir_count  = count( $top_level_dirs );
+    $file_count = count( $top_level_files );
+    $parts = [];
+    if ( $dir_count > 0 )  $parts[] = $dir_count  . ' ' . ( $dir_count  === 1 ? 'map'      : 'mappen' );
+    if ( $file_count > 0 ) $parts[] = $file_count . ' ' . ( $file_count === 1 ? 'bestand'  : 'bestanden' );
+    $summary = empty( $parts ) ? 'leeg archief' : implode( ' + ', $parts );
+
+    wp_send_json_success( [
+        'message' => 'Uitgepakt: ' . $summary . '.',
+        'top_level_dirs'  => array_keys( $top_level_dirs ),
+        'top_level_files' => array_keys( $top_level_files ),
+    ] );
 } );
 
 /* ------------------------------------------------------------------ */

@@ -286,6 +286,9 @@ $start_path = str_replace( '\\', '/', ABSPATH );
             if (item.name !== '..') {
                 if (!item.is_dir) {
                     html += '<button class="dp-fm-act-dl" title="Download"><span class="dashicons dashicons-download"></span></button>';
+                    if ((item.ext || '').toLowerCase() === 'zip') {
+                        html += '<button class="dp-fm-act-unzip" title="Uitpakken in deze map"><span class="dashicons dashicons-media-archive"></span></button>';
+                    }
                 }
                 html += '<button class="dp-fm-act-ren" title="Hernoemen"><span class="dashicons dashicons-edit"></span></button>';
                 html += '<button class="dp-fm-act-del" title="Verwijderen"><span class="dashicons dashicons-trash"></span></button>';
@@ -324,6 +327,15 @@ $start_path = str_replace( '\\', '/', ABSPATH );
         if (btn && btn.classList.contains('dp-fm-act-del')) {
             if (!confirm('Weet je zeker dat je "' + tr.dataset.name + '" wilt verwijderen?')) return;
             ajaxPost('dp_toolbox_fm_delete', { path: path }, function() { loadDir(currentDir); });
+        }
+        if (btn && btn.classList.contains('dp-fm-act-unzip')) {
+            if (!confirm('"' + tr.dataset.name + '" uitpakken in deze map?\n\nBestaande mappen met dezelfde naam als de hoofdmap in de ZIP worden overschreven.')) return;
+            ajaxPost('dp_toolbox_fm_unzip', { path: path }, function(data) {
+                if (data && data.message) {
+                    alert(data.message);
+                }
+                loadDir(currentDir);
+            });
         }
     });
 
