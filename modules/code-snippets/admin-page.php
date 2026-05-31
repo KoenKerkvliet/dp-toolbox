@@ -17,7 +17,8 @@ add_action( 'admin_init', function () {
  * Enqueue WP's eigen code-editor (CodeMirror) op deze pagina.
  */
 add_action( 'admin_enqueue_scripts', function ( $hook ) {
-    if ( strpos( (string) $hook, 'dp-toolbox-snippets' ) === false ) return;
+    if ( strpos( (string) $hook, 'dp-toolbox' ) === false ) return;
+    if ( empty( $_GET['action'] ) || $_GET['action'] !== 'edit' ) return;
     // Default mode = PHP; we wisselen runtime via JS bij type-change.
     $settings = wp_enqueue_code_editor( [ 'type' => 'application/x-httpd-php' ] );
     if ( false !== $settings ) {
@@ -53,7 +54,7 @@ function dp_toolbox_snippets_admin_list() {
     $active  = count( array_filter( $snippets, function ( $s ) { return ! empty( $s['active'] ); } ) );
     $errors  = count( array_filter( $snippets, function ( $s ) { return ! empty( $s['has_error'] ); } ) );
 
-    $new_url = admin_url( 'admin.php?page=dp-toolbox#settings-code-snippets&action=edit' );
+    $new_url = admin_url( 'admin.php?page=dp-toolbox&action=edit#settings-code-snippets' );
     ?>
     <style>
         .dp-sn-stats { display: flex; gap: 12px; margin-bottom: 20px; }
@@ -170,7 +171,7 @@ function dp_toolbox_snippets_admin_list() {
                         return ( (int) ( $a['priority'] ?? 10 ) ) <=> ( (int) ( $b['priority'] ?? 10 ) );
                     } );
                     foreach ( $snippets as $id => $s ) :
-                        $edit_url = admin_url( 'admin.php?page=dp-toolbox#settings-code-snippets&action=edit&id=' . urlencode( $id ) );
+                        $edit_url = admin_url( 'admin.php?page=dp-toolbox&action=edit&id=' . urlencode( $id ) . '#settings-code-snippets' );
                         $row_class = '';
                         if ( empty( $s['active'] ) ) $row_class .= ' is-inactive';
                         if ( ! empty( $s['has_error'] ) ) $row_class .= ' has-error';
