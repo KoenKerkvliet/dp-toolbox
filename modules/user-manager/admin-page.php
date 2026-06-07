@@ -5,16 +5,29 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  *  Menu registratie
  * ------------------------------------------------------------------ */
 /**
- * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ * Registreer de User Manager als eigen submenu-pagina onder DP Toolbox.
+ * De interne links én de save-redirect verwachten de slug 'dp-toolbox-user-manager';
+ * die moet dus daadwerkelijk als pagina bestaan, anders geeft WordPress
+ * "Je hebt geen toestemming om deze pagina te bekijken."
+ * Alleen zichtbaar/registreerd voor superadmins (@designpixels.nl).
  */
-add_action( 'admin_init', function () {
-    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
-        dp_toolbox_register_module_settings( 'user-manager', 'dp_toolbox_um_render_inline', [
-            'title'       => 'User Manager',
-            'description' => 'Beheer per administrator welke plugins en sidebar-items zichtbaar zijn.',
-        ] );
+add_action( 'admin_menu', function () {
+    if ( ! dp_toolbox_um_is_superadmin() ) {
+        return;
     }
-} );
+    add_submenu_page(
+        'dp-toolbox',
+        'User Manager',
+        'User Manager',
+        'manage_options',
+        'dp-toolbox-user-manager',
+        function () {
+            echo '<div class="wrap"><h1 style="margin:0 0 16px;">User Manager</h1>';
+            dp_toolbox_um_render_inline();
+            echo '</div>';
+        }
+    );
+}, 20 );
 
 /* ------------------------------------------------------------------
  *  Form-save handler (form-POST + redirect, geen AJAX)
@@ -79,7 +92,7 @@ function dp_toolbox_um_render_inline() {
     $selected_uid = absint( $_GET['user'] ?? 0 );
     $selected_user = null;
     foreach ( $admins as $u ) {
-        if ( $u->ID === $selected_uid && ! dp_toolbox_um_is_superadmin( $u->ID ) ) {
+        if ( (int) $u->ID === $selected_uid && ! dp_toolbox_um_is_superadmin( $u->ID ) ) {
             $selected_user = $u;
             break;
         }
@@ -217,9 +230,9 @@ function dp_toolbox_um_render_inline() {
             $current_uid = get_current_user_id();
             foreach ( $admins as $u ) :
                 $is_super    = dp_toolbox_um_is_superadmin( $u->ID );
-                $is_self     = ( $u->ID === $current_uid );
+                $is_self     = ( (int) $u->ID === (int) $current_uid );
                 $is_disabled = $is_super || $is_self;
-                $is_active   = ( $selected_user && $u->ID === $selected_user->ID );
+                $is_active   = ( $selected_user && (int) $u->ID === (int) $selected_user->ID );
 
                 $url = add_query_arg( [
                     'page' => 'dp-toolbox-user-manager',
