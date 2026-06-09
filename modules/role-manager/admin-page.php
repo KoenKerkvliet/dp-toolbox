@@ -5,16 +5,12 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  *  Menu registratie
  * ------------------------------------------------------------------ */
 /**
- * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ * De Role Manager-UI is samengevoegd in de User Manager (per-user voor admins,
+ * per-rol voor overige rollen). De losse inline-UI is daarom uitgeschakeld.
+ * De verberg-logica (role-manager.php) en de AJAX-handlers hieronder blijven
+ * actief, zodat bestaande per-rol-instellingen blijven werken en de
+ * menu-structuur-transient gevuld blijft.
  */
-add_action( 'admin_init', function () {
-    if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
-        dp_toolbox_register_module_settings( 'role-manager', 'dp_toolbox_rm_render_inline', [
-            'title'       => 'Role Manager',
-            'description' => 'Beheer welke menu-items en plugins zichtbaar zijn per gebruikersrol.',
-        ] );
-    }
-} );
 
 /* ------------------------------------------------------------------
  *  AJAX: opslaan menu-instellingen per rol
