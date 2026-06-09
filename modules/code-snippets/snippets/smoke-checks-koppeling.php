@@ -1,17 +1,18 @@
 <?php
 /**
  * Name: Smoke-checks koppeling
- * Description: Meldt deze site automatisch aan bij het smoke-checks-dashboard (pending) en start na elke plugin-update een test-run. Doet niets zonder de wp-config-constantes (zie hieronder) — veilig om overal mee te shippen.
+ * Description: Meldt deze site automatisch aan bij het smoke-checks-dashboard (als 'pending', jij keurt goed) en start na elke plugin-update een test-run. Aanmelden werkt zonder config; de update-trigger vereist SMOKE_GH_TOKEN.
  * Sites: *
  * Status: active
- * Version: 1.0.0
+ * Version: 1.1.0
  *
- * Configuratie in wp-config.php (geheimen NIET in dit bestand):
- *   // Verplicht voor auto-aanmelden:
- *   define('SMOKE_ENROLL_SECRET', '...');        // enroll-secret uit Supabase (app_config)
- *   // Optioneel voor de "test na plugin-update"-trigger:
- *   define('SMOKE_GH_TOKEN', 'github_pat_...');  // fine-grained PAT, alleen repository_dispatch op de repo
- *   // Optionele overrides:
+ * Auto-aanmelden werkt out-of-the-box (zero-config). Aanmeldingen landen 'pending'
+ * en moeten in het dashboard goedgekeurd worden — het token hieronder is daarom
+ * bewust slechts een spam-filter, geen geheim.
+ *
+ * Optioneel in wp-config.php:
+ *   define('SMOKE_GH_TOKEN', 'github_pat_...');  // ECHT geheim: PAT voor de 'test na plugin-update'-trigger
+ *   // define('SMOKE_ENROLL_SECRET', '...');     // eigen enrollment-token i.p.v. de default
  *   // define('SMOKE_SITE_SLUG', 'eigen-slug');  // standaard afgeleid van de host
  *   // define('SMOKE_ENROLL_URL', 'https://<ref>.supabase.co/functions/v1/enroll-site');
  *   // define('SMOKE_REPO', 'KoenKerkvliet/smoke-checks');
@@ -19,6 +20,11 @@
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
+}
+
+// Publiek enrollment-token (spam-filter; aanmeldingen zijn approval-gated in het dashboard).
+if ( ! defined( 'SMOKE_DEFAULT_ENROLL_TOKEN' ) ) {
+    define( 'SMOKE_DEFAULT_ENROLL_TOKEN', '71fece5a0c0741c882fe3dcdc8a01a7d6476662832bf45779b8b0a12331cce6e' );
 }
 
 if ( ! function_exists( 'smoke_checks_slug' ) ) {
@@ -40,13 +46,14 @@ if ( ! function_exists( 'smoke_checks_slug' ) ) {
  * Auto-aanmelden bij het dashboard (eenmalig, landt op 'pending').
  */
 add_action( 'admin_init', function (): void {
-    if ( ! defined( 'SMOKE_ENROLL_SECRET' ) || ! SMOKE_ENROLL_SECRET ) {
-        return;
-    }
     $slug = smoke_checks_slug();
     if ( get_option( 'smoke_checks_enrolled' ) === $slug ) {
         return; // al aangemeld voor deze slug
     }
+
+    $secret = ( defined( 'SMOKE_ENROLL_SECRET' ) && SMOKE_ENROLL_SECRET )
+        ? SMOKE_ENROLL_SECRET
+        : SMOKE_DEFAULT_ENROLL_TOKEN;
 
     $url = defined( 'SMOKE_ENROLL_URL' )
         ? SMOKE_ENROLL_URL
@@ -56,7 +63,7 @@ add_action( 'admin_init', function (): void {
         'timeout' => 15,
         'headers' => [
             'Content-Type'    => 'application/json',
-            'x-enroll-secret' => SMOKE_ENROLL_SECRET,
+            'x-enroll-secret' => $secret,
         ],
         'body' => wp_json_encode( [
             'url'  => home_url(),
