@@ -2,7 +2,7 @@
 /**
  * Module Name: SMTP Mailer
  * Description: Configureer een SMTP-server voor betrouwbare e-mailverzending vanuit WordPress.
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -13,18 +13,58 @@ if ( ! defined( 'ABSPATH' ) ) {
 /*  Encryption helpers                                                 */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Stabiele encryptiesleutel — losgekoppeld van de WordPress auth-salt.
+ *
+ * Voorheen werd het SMTP-wachtwoord versleuteld met wp_salt('auth'). Die salt
+ * is echter bedoeld om te kunnen roteren (security-keys regenereren, migratie,
+ * host-onderhoud) — en elke rotatie maakte het opgeslagen wachtwoord
+ * onontsleutelbaar, waarna mail stil faalde. Daarom nu een eigen, persistente
+ * sleutel: een wp-config-constante als die bestaat, anders een eenmalig
+ * gegenereerde optie (autoload uit).
+ */
+function dp_toolbox_smtp_enc_key() {
+    if ( defined( 'DP_TOOLBOX_ENC_KEY' ) && DP_TOOLBOX_ENC_KEY ) {
+        return DP_TOOLBOX_ENC_KEY;
+    }
+    $key = get_option( 'dp_toolbox_enc_key' );
+    if ( ! $key ) {
+        $key = wp_generate_password( 64, true, true );
+        add_option( 'dp_toolbox_enc_key', $key, '', 'no' );
+    }
+    return $key;
+}
+
 function dp_toolbox_smtp_encrypt( $value ) {
-    if ( empty( $value ) ) {
+    if ( $value === '' || $value === null ) {
         return '';
     }
-    $key = wp_salt( 'auth' );
-    $iv  = substr( md5( $key ), 0, 16 );
+    $key = dp_toolbox_smtp_enc_key();
+    $iv  = substr( hash( 'sha256', $key ), 0, 16 );
 
     $encrypted = openssl_encrypt( $value, 'AES-256-CBC', $key, 0, $iv );
     return $encrypted !== false ? base64_encode( $encrypted ) : '';
 }
 
 function dp_toolbox_smtp_decrypt( $value ) {
+    if ( empty( $value ) ) {
+        return '';
+    }
+    $key = dp_toolbox_smtp_enc_key();
+    $iv  = substr( hash( 'sha256', $key ), 0, 16 );
+
+    $decoded   = base64_decode( $value );
+    $decrypted = openssl_decrypt( $decoded, 'AES-256-CBC', $key, 0, $iv );
+    return $decrypted !== false ? $decrypted : '';
+}
+
+/**
+ * Ontsleutel volgens het oude schema (wp_salt('auth')-gebaseerd).
+ * Uitsluitend voor eenmalige migratie van bestaande installaties — zolang de
+ * auth-salt nog niet geroteerd is, kunnen we de waarde herstellen en met de
+ * nieuwe stabiele sleutel her-versleutelen.
+ */
+function dp_toolbox_smtp_legacy_decrypt( $value ) {
     if ( empty( $value ) ) {
         return '';
     }
@@ -57,7 +97,26 @@ function dp_toolbox_smtp_get_settings() {
 
     // Decrypt password
     if ( ! empty( $settings['password'] ) ) {
-        $settings['password'] = dp_toolbox_smtp_decrypt( $settings['password'] );
+        $plain = dp_toolbox_smtp_decrypt( $settings['password'] );
+
+        if ( $plain === '' ) {
+            // Nieuwe sleutel faalde — probeer het oude (salt-gebaseerde) schema.
+            $plain = dp_toolbox_smtp_legacy_decrypt( $settings['password'] );
+
+            if ( $plain !== '' ) {
+                // Hersteld: her-versleutel met de stabiele sleutel en bewaar (eenmalig).
+                $saved['password'] = dp_toolbox_smtp_encrypt( $plain );
+                update_option( 'dp_toolbox_smtp_settings', $saved );
+                delete_option( 'dp_toolbox_smtp_decrypt_failed' );
+            } elseif ( ! get_option( 'dp_toolbox_smtp_decrypt_failed' ) ) {
+                // Onherstelbaar (salt geroteerd vóór migratie) — markeer voor admin-melding.
+                update_option( 'dp_toolbox_smtp_decrypt_failed', 1 );
+            }
+        } elseif ( get_option( 'dp_toolbox_smtp_decrypt_failed' ) ) {
+            delete_option( 'dp_toolbox_smtp_decrypt_failed' );
+        }
+
+        $settings['password'] = $plain;
     }
 
     return $settings;
@@ -164,6 +223,28 @@ add_filter( 'dp_toolbox_module_notices', function ( $notices ) {
     }
 
     return $notices;
+} );
+
+/* ------------------------------------------------------------------ */
+/*  Notice: opgeslagen wachtwoord onontsleutelbaar                     */
+/* ------------------------------------------------------------------ */
+
+add_action( 'admin_notices', function () {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        return;
+    }
+    if ( ! get_option( 'dp_toolbox_smtp_decrypt_failed' ) ) {
+        return;
+    }
+    $opt = get_option( 'dp_toolbox_smtp_settings', [] );
+    if ( empty( $opt['password'] ) ) {
+        return;
+    }
+    echo '<div class="notice notice-error"><p><strong>DP Toolbox — SMTP:</strong> '
+       . 'Het opgeslagen SMTP-wachtwoord kon niet ontsleuteld worden. Waarschijnlijk zijn de '
+       . 'WordPress security-keys (salts) gewijzigd. E-mail via SMTP werkt nu niet. '
+       . 'Voer het wachtwoord / de API-key opnieuw in onder <em>DP Toolbox → SMTP Mailer</em>.'
+       . '</p></div>';
 } );
 
 /* ------------------------------------------------------------------ */
