@@ -2,7 +2,7 @@
 /**
  * Module Name: WebP Converter
  * Description: Converteert afbeeldingen automatisch naar WebP, met bulk-conversie en cleanup.
- * Version: 1.0.0
+ * Version: 1.0.1
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -68,7 +68,12 @@ add_filter( 'wp_handle_upload', function ( $upload ) {
     }
 
     $file_info     = pathinfo( $file_path );
-    $new_file_path = $file_info['dirname'] . '/' . $file_info['filename'] . '.webp';
+    // Belangrijk: voorkom dat een bestaande <naam>.webp wordt overschreven.
+    // De bronnaam (.jpg/.png) is al uniek gemaakt door core, maar de afgeleide
+    // .webp-naam niet — zonder deze check overschrijft een nieuwe upload met
+    // dezelfde naam de webp van een eerdere upload (dataverlies).
+    $new_filename  = wp_unique_filename( $file_info['dirname'], $file_info['filename'] . '.webp' );
+    $new_file_path = $file_info['dirname'] . '/' . $new_filename;
 
     $saved_image = $image_editor->save( $new_file_path, 'image/webp', [ 'quality' => 80 ] );
     if ( ! is_wp_error( $saved_image ) && file_exists( $saved_image['path'] ) ) {
@@ -209,6 +214,11 @@ function dp_toolbox_convert_single_image() {
 
     $path_info     = pathinfo( $file_path );
     $new_file_path = $path_info['dirname'] . '/' . $path_info['filename'] . '.webp';
+    // Voorkom overschrijven van een ándere bestaande .webp. Wanneer doel == bron
+    // (een te brede .webp die in-place verkleind wordt) laten we de naam staan.
+    if ( $new_file_path !== $file_path && file_exists( $new_file_path ) ) {
+        $new_file_path = $path_info['dirname'] . '/' . wp_unique_filename( $path_info['dirname'], $path_info['filename'] . '.webp' );
+    }
     $result        = $editor->save( $new_file_path, 'image/webp' );
 
     if ( is_wp_error( $result ) ) {
