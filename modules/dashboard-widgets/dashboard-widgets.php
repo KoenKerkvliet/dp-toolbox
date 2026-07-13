@@ -181,25 +181,133 @@ function dp_toolbox_dashboard_youtube_id( $url ) {
 }
 
 /* ------------------------------------------------------------------
- *  Helper: Is Independent Analytics actief?
+ *  Analytics-bron detecteren
+ *
+ *  De widget werkt met twee bronnen: DP Analytics (eigen plugin, voorkeur)
+ *  en Independent Analytics (fallback). Beide leveren dezelfde datavorm op
+ *  (totals/chart/top_pages/top_refs), zodat de render-code hetzelfde blijft.
  * ------------------------------------------------------------------ */
-function dp_toolbox_dashboard_ia_available() {
+function dp_toolbox_dashboard_dpa_available() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'dpa_views';
+    return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table;
+}
+
+function dp_toolbox_dashboard_ia_source_available() {
     global $wpdb;
     $table = $wpdb->prefix . 'independent_analytics_views';
     return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table;
 }
 
+/**
+ * Is er een analytics-bron beschikbaar? (DP Analytics óf Independent Analytics)
+ * De naam is historisch 'ia_available'; hij dekt nu beide bronnen.
+ */
+function dp_toolbox_dashboard_ia_available() {
+    return dp_toolbox_dashboard_dpa_available() || dp_toolbox_dashboard_ia_source_available();
+}
+
+/* Lege 7-daagse grafiekreeks (dagen zonder data blijven 0). */
+function dp_toolbox_dashboard_empty_chart() {
+    $chart = [];
+    for ( $i = 6; $i >= 0; $i-- ) {
+        $chart[ gmdate( 'Y-m-d', strtotime( "-{$i} days" ) ) ] = 0;
+    }
+    return $chart;
+}
+
 /* ------------------------------------------------------------------
- *  Data ophalen (gecached) voor Analytics-widget
+ *  Data ophalen (gecached) — kiest de beschikbare bron
  * ------------------------------------------------------------------ */
 function dp_toolbox_dashboard_get_analytics_data() {
-    global $wpdb;
-
     $data = get_transient( 'dp_toolbox_analytics_data' );
     if ( false !== $data ) {
         return $data;
     }
 
+    if ( dp_toolbox_dashboard_dpa_available() ) {
+        $data = dp_toolbox_dashboard_get_analytics_data_dpa();
+    } elseif ( dp_toolbox_dashboard_ia_source_available() ) {
+        $data = dp_toolbox_dashboard_get_analytics_data_ia();
+    } else {
+        $data = [
+            'totals'    => [ 'views' => 0, 'sessions' => 0, 'visitors' => 0 ],
+            'chart'     => dp_toolbox_dashboard_empty_chart(),
+            'top_pages' => [],
+            'top_refs'  => [],
+        ];
+    }
+
+    set_transient( 'dp_toolbox_analytics_data', $data, 5 * MINUTE_IN_SECONDS );
+    return $data;
+}
+
+/* ------------------------------------------------------------------
+ *  Bron: DP Analytics (eigen plugin)
+ * ------------------------------------------------------------------ */
+function dp_toolbox_dashboard_get_analytics_data_dpa() {
+    global $wpdb;
+    $since = gmdate( 'Y-m-d H:i:s', strtotime( '-7 days' ) );
+
+    $tv = $wpdb->prefix . 'dpa_views';
+    $ts = $wpdb->prefix . 'dpa_sessions';
+    $tr = $wpdb->prefix . 'dpa_resources';
+
+    $totals = $wpdb->get_row( $wpdb->prepare( "
+        SELECT
+            (SELECT COUNT(*) FROM {$tv} WHERE viewed_at >= %s) AS views,
+            (SELECT COUNT(*) FROM {$ts} WHERE created_at >= %s) AS sessions,
+            (SELECT COUNT(DISTINCT visitor_hash) FROM {$ts} WHERE created_at >= %s) AS visitors
+    ", $since, $since, $since ), ARRAY_A );
+
+    $chart_rows = $wpdb->get_results( $wpdb->prepare( "
+        SELECT DATE(viewed_at) AS d, COUNT(*) AS n
+        FROM {$tv}
+        WHERE viewed_at >= %s
+        GROUP BY DATE(viewed_at)
+        ORDER BY d ASC
+    ", $since ), ARRAY_A );
+
+    $chart = dp_toolbox_dashboard_empty_chart();
+    foreach ( $chart_rows as $row ) {
+        if ( isset( $chart[ $row['d'] ] ) ) {
+            $chart[ $row['d'] ] = (int) $row['n'];
+        }
+    }
+
+    // Aliassen (cached_title/cached_url/domain) zodat de render-code onveranderd blijft.
+    $top_pages = $wpdb->get_results( $wpdb->prepare( "
+        SELECT r.title AS cached_title, r.url AS cached_url, COUNT(*) AS n
+        FROM {$tv} v
+        JOIN {$tr} r ON v.resource_id = r.id
+        WHERE v.viewed_at >= %s
+        GROUP BY v.resource_id
+        ORDER BY n DESC
+        LIMIT 5
+    ", $since ), ARRAY_A );
+
+    $top_refs = $wpdb->get_results( $wpdb->prepare( "
+        SELECT referrer_host AS domain, COUNT(*) AS n
+        FROM {$ts}
+        WHERE created_at >= %s AND referrer_host != '' AND referrer_type != 'internal'
+        GROUP BY referrer_host
+        ORDER BY n DESC
+        LIMIT 5
+    ", $since ), ARRAY_A );
+
+    return [
+        'totals'    => $totals,
+        'chart'     => $chart,
+        'top_pages' => $top_pages,
+        'top_refs'  => $top_refs,
+    ];
+}
+
+/* ------------------------------------------------------------------
+ *  Bron: Independent Analytics (fallback)
+ * ------------------------------------------------------------------ */
+function dp_toolbox_dashboard_get_analytics_data_ia() {
+    global $wpdb;
     $since = gmdate( 'Y-m-d H:i:s', strtotime( '-7 days' ) );
 
     $tv = $wpdb->prefix . 'independent_analytics_views';
@@ -222,12 +330,7 @@ function dp_toolbox_dashboard_get_analytics_data() {
         ORDER BY d ASC
     ", $since ), ARRAY_A );
 
-    // Vul hiaten in de grafiek (dagen zonder data)
-    $chart = [];
-    for ( $i = 6; $i >= 0; $i-- ) {
-        $day = gmdate( 'Y-m-d', strtotime( "-{$i} days" ) );
-        $chart[ $day ] = 0;
-    }
+    $chart = dp_toolbox_dashboard_empty_chart();
     foreach ( $chart_rows as $row ) {
         if ( isset( $chart[ $row['d'] ] ) ) {
             $chart[ $row['d'] ] = (int) $row['n'];
@@ -254,15 +357,12 @@ function dp_toolbox_dashboard_get_analytics_data() {
         LIMIT 5
     ", $since ), ARRAY_A );
 
-    $data = [
+    return [
         'totals'    => $totals,
         'chart'     => $chart,
         'top_pages' => $top_pages,
         'top_refs'  => $top_refs,
     ];
-
-    set_transient( 'dp_toolbox_analytics_data', $data, 5 * MINUTE_IN_SECONDS );
-    return $data;
 }
 
 /* ------------------------------------------------------------------
