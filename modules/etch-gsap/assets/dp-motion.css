@@ -8,7 +8,14 @@
  * content gewoon zichtbaar. Nooit permanent verborgen content.
  */
 
-.dp-motion [data-dp-anim]:not(.is-dp-revealed),
+/**
+ * Let op de :not([data-dp-stagger]) in de eerste regel. Een element met
+ * data-dp-stagger is een TRIGGER, geen animatiedoel: de JS animeert z'n
+ * kinderen en zet is-dp-revealed op die kinderen, nooit op de container zelf.
+ * Zonder deze uitzondering blijft zo'n container permanent op opacity 0 staan
+ * en zijn z'n kinderen dus onzichtbaar, hoe netjes ze zelf ook inanimeren.
+ */
+.dp-motion [data-dp-anim]:not([data-dp-stagger]):not(.is-dp-revealed),
 .dp-motion [data-dp-stagger] > *:not(.is-dp-revealed) {
 	opacity: 0;
 }

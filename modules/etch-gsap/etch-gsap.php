@@ -51,11 +51,13 @@ add_action( 'wp_enqueue_scripts', function () {
 	 *   } );
 	 */
 	$config = apply_filters( 'dp_motion_config', [
-		'duration' => 1.0,
-		'ease'     => 'power2.out',
-		'distance' => 24,
-		'stagger'  => 0.14,
-		'start'    => 'top 85%',
+		'duration'   => 1.0,
+		'ease'       => 'power2.out',
+		'distance'   => 24,
+		'stagger'    => 0.14,
+		// IntersectionObserver-marge: animatie start als het element tot ~10%
+		// boven de onderrand van het scherm is gekomen.
+		'rootMargin' => '0px 0px -10% 0px',
 	] );
 
 	wp_add_inline_script(
