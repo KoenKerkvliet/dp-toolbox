@@ -328,6 +328,7 @@ function dp_toolbox_render_modules_tab() {
         'file-manager'         => 'tools',
         'search-replace'       => 'tools',
         'plugin-installer'     => 'tools',
+        'submissions'          => 'tools',
         'thumbnails-manager'   => 'media',
         'attribute-pricing'    => 'woocommerce',
         'free-shipping-bar'    => 'woocommerce',
@@ -651,6 +652,9 @@ function dp_toolbox_render_modules_tab() {
         function activate(cat) {
             items.forEach(function(el)  { el.classList.toggle('is-active', el.dataset.cat === cat); });
             panels.forEach(function(el) { el.classList.toggle('is-visible', el.dataset.category === cat); });
+            // Onthoud de actieve categorie, zodat we na een opslaan-redirect
+            // (options.php dropt de #hash) in dezelfde tab blijven.
+            try { sessionStorage.setItem('dp_toolbox_active_cat', cat); } catch (e) {}
         }
 
         items.forEach(function(item) {
@@ -733,7 +737,13 @@ function dp_toolbox_render_modules_tab() {
                 openInlinePanel(lastSlug);
             }
         } else {
-            // No hash — still try to restore from sessionStorage
+            // Geen categorie-hash in de URL (o.a. ná een instellingen-opslag-redirect):
+            // herstel de laatst-actieve categorie zodat je in dezelfde tab blijft.
+            var storedCat = sessionStorage.getItem('dp_toolbox_active_cat');
+            if (storedCat && document.querySelector('[data-cat="' + storedCat + '"]')) {
+                activate(storedCat);
+            }
+            // Re-open last panel from sessionStorage
             var lastSlug = sessionStorage.getItem('dp_toolbox_open_panel');
             if (lastSlug && document.querySelector('.dp-module-settings-btn[data-module="' + lastSlug + '"]')) {
                 openInlinePanel(lastSlug);
