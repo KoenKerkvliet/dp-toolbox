@@ -1,0 +1,31 @@
+/**
+ * DP Motion — verbergt alleen de begintoestand van elementen die daadwerkelijk
+ * geanimeerd worden.
+ *
+ * De .dp-motion class op <html> wordt uitsluitend door dp-motion.js gezet, en
+ * alleen wanneer GSAP geladen is EN de bezoeker geen reduced-motion wil. Laadt
+ * GSAP niet, of gaat er iets mis, dan bestaat deze class niet en is alle
+ * content gewoon zichtbaar. Nooit permanent verborgen content.
+ */
+
+.dp-motion [data-dp-anim]:not(.is-dp-revealed),
+.dp-motion [data-dp-stagger] > *:not(.is-dp-revealed) {
+	opacity: 0;
+}
+
+/* Print en reduced-motion: altijd zichtbaar, wat er ook gebeurd is. */
+@media print {
+	.dp-motion [data-dp-anim],
+	.dp-motion [data-dp-stagger] > * {
+		opacity: 1 !important;
+		transform: none !important;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dp-motion [data-dp-anim],
+	.dp-motion [data-dp-stagger] > * {
+		opacity: 1 !important;
+		transform: none !important;
+	}
+}

@@ -32,7 +32,10 @@ add_action( 'admin_init', function () {
     register_setting( 'dp_toolbox_settings', 'dp_toolbox_enabled_modules', [
         'type'              => 'array',
         'sanitize_callback' => function ( $input ) {
-            return is_array( $input ) ? array_map( 'sanitize_key', $input ) : [];
+            $input = is_array( $input ) ? array_map( 'sanitize_key', $input ) : [];
+            // Harde gate: een module met een onvervulde vereiste kan nooit
+            // aangezet worden, ook niet door een geknutselde POST.
+            return array_values( array_filter( $input, 'dp_toolbox_module_requirement_met' ) );
         },
         'default' => [],
     ] );
@@ -286,9 +289,10 @@ function dp_toolbox_settings_page() {
 /* ------------------------------------------------------------------ */
 
 function dp_toolbox_render_modules_tab() {
-    $modules = dp_toolbox_get_available_modules();
-    $enabled = dp_toolbox_get_enabled_modules();
-    $notices = dp_toolbox_get_module_notices();
+    $modules      = dp_toolbox_get_available_modules();
+    $enabled      = dp_toolbox_get_enabled_modules();
+    $notices      = dp_toolbox_get_module_notices();
+    $requirements = dp_toolbox_get_module_requirements();
 
     $categories = [
         'dashboard'   => [ 'label' => 'Dashboard',          'icon' => 'dashicons-dashboard' ],
@@ -325,6 +329,7 @@ function dp_toolbox_render_modules_tab() {
         'media-replacement'  => 'media',
         'unused-media'       => 'media',
         'webp-converter'     => 'media',
+        'etch-gsap'            => 'tools',
         'file-manager'         => 'tools',
         'search-replace'       => 'tools',
         'plugin-installer'     => 'tools',
@@ -423,6 +428,15 @@ function dp_toolbox_render_modules_tab() {
         .dp-module-card.is-active  { border-left: 3px solid #281E5D; }
         .dp-module-card.is-inactive { opacity: 0.55; }
         .dp-module-card.is-inactive:hover { opacity: 1; }
+
+        /* Module die op deze site niet aangezet kan worden (vereiste niet vervuld) */
+        .dp-module-card.is-blocked { opacity: 1; background: #fafafa; border-style: dashed; }
+        .dp-module-card.is-blocked:hover { border-color: #e0e0e0; box-shadow: none; }
+        .dp-module-card.is-blocked .dp-toggle { opacity: 0.35; pointer-events: none; }
+        .dp-module-card.is-blocked h3 { color: #777; }
+        .dp-module-blocked {
+            margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: #8a6d1f;
+        }
 
         .dp-module-info { flex: 1; min-width: 0; }
         .dp-module-info h3 { margin: 0; font-size: 13px; font-weight: 600; color: #1d2327; }
@@ -566,14 +580,17 @@ function dp_toolbox_render_modules_tab() {
                             <?php foreach ( $cat_modules as $slug => $module ) :
                                 $is_active  = in_array( $slug, $enabled, true );
                                 $has_notice = isset( $notices[ $slug ] );
+                                $req        = $requirements[ $slug ] ?? null;
+                                $blocked    = $req && empty( $req['met'] );
                             ?>
-                                <div class="dp-module-card <?php echo $is_active ? 'is-active' : 'is-inactive'; ?>">
+                                <div class="dp-module-card <?php echo $is_active ? 'is-active' : 'is-inactive'; ?><?php echo $blocked ? ' is-blocked' : ''; ?>">
                                     <div class="dp-toggle">
                                         <input type="checkbox"
                                                id="dp-module-<?php echo esc_attr( $slug ); ?>"
                                                name="dp_toolbox_enabled_modules[]"
                                                value="<?php echo esc_attr( $slug ); ?>"
-                                               <?php checked( $is_active ); ?>>
+                                               <?php checked( $is_active && ! $blocked ); ?>
+                                               <?php disabled( $blocked ); ?>>
                                         <label for="dp-module-<?php echo esc_attr( $slug ); ?>"></label>
                                     </div>
                                     <div class="dp-module-info">
@@ -581,6 +598,9 @@ function dp_toolbox_render_modules_tab() {
                                             <?php echo esc_html( $module['name'] ); ?>
                                             <span class="dp-version">v<?php echo esc_html( $module['version'] ); ?></span>
                                         </h3>
+                                        <?php if ( $blocked ) : ?>
+                                            <p class="dp-module-blocked"><?php echo esc_html( $req['reason'] ); ?></p>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="dp-module-icons">
                                         <?php if ( $is_active && dp_toolbox_has_inline_settings( $slug ) ) : ?>

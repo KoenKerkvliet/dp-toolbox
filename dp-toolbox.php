@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DP Toolbox
  * Description: Design Pixels gereedschapskist — modulaire verzameling van site-tools.
- * Version: 2.29.0
+ * Version: 2.30.0
  * Author: Design Pixels
  * Text Domain: dp-toolbox
  * GitHub Plugin URI: KoenKerkvliet/dp-toolbox
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DP_TOOLBOX_VERSION', '2.29.0' );
+define( 'DP_TOOLBOX_VERSION', '2.30.0' );
 define( 'DP_TOOLBOX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DP_TOOLBOX_URL', plugin_dir_url( __FILE__ ) );
 
@@ -145,6 +145,71 @@ function dp_toolbox_migrate_dashboard_widgets() {
 }
 add_action( 'plugins_loaded', 'dp_toolbox_migrate_dashboard_widgets', 5 );
 
+/* ------------------------------------------------------------------ */
+/*  Module-vereisten                                                    */
+/*  Sommige modules slaan alleen ergens op met een specifieke builder.  */
+/*  Een module met een onvervulde vereiste kan niet aangezet worden     */
+/*  (afgedwongen in de sanitize-callback van de instellingenpagina) en  */
+/*  wordt sowieso niet geladen.                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Is Etch beschikbaar op deze site — als thema of als plugin?
+ */
+function dp_toolbox_etch_is_available() {
+    static $cached = null;
+    if ( null !== $cached ) {
+        return $cached;
+    }
+
+    // Opties i.p.v. wp_get_theme(): dit draait al op plugins_loaded.
+    if ( in_array( 'etch-theme', [ get_option( 'template' ), get_option( 'stylesheet' ) ], true ) ) {
+        return $cached = true;
+    }
+
+    if ( class_exists( '\Etch\WpApi' ) ) {
+        return $cached = true;
+    }
+
+    if ( file_exists( WP_PLUGIN_DIR . '/etch/etch.php' ) ) {
+        if ( in_array( 'etch/etch.php', (array) get_option( 'active_plugins', [] ), true ) ) {
+            return $cached = true;
+        }
+        if ( is_multisite() && isset( ( (array) get_site_option( 'active_sitewide_plugins', [] ) )['etch/etch.php'] ) ) {
+            return $cached = true;
+        }
+    }
+
+    return $cached = false;
+}
+
+/**
+ * Onvervulde vereisten per module: slug => [ 'met' => bool, 'reason' => string ].
+ * Modules zonder entry hebben geen vereisten.
+ */
+function dp_toolbox_get_module_requirements() {
+    $reqs = [];
+
+    if ( ! dp_toolbox_etch_is_available() ) {
+        $reqs['etch-gsap'] = [
+            'met'    => false,
+            'reason' => get_option( 'template' ) === 'bricks'
+                ? 'Vereist Etch. Deze site draait op Bricks — gebruik daar Bricksforge voor animaties.'
+                : 'Vereist het Etch-thema of de Etch-plugin. Niet gevonden op deze site.',
+        ];
+    }
+
+    return apply_filters( 'dp_toolbox_module_requirements', $reqs );
+}
+
+/**
+ * Mag deze module aangezet worden op deze site?
+ */
+function dp_toolbox_module_requirement_met( $slug ) {
+    $reqs = dp_toolbox_get_module_requirements();
+    return ! isset( $reqs[ $slug ] ) || ! empty( $reqs[ $slug ]['met'] );
+}
+
 /**
  * Load only enabled modules.
  */
@@ -152,6 +217,12 @@ function dp_toolbox_load_modules() {
     $enabled = dp_toolbox_get_enabled_modules();
 
     foreach ( $enabled as $slug ) {
+        // Vereiste weggevallen (bv. site omgebouwd van Etch naar Bricks):
+        // niets laden, ook al staat de module nog aan in de database.
+        if ( ! dp_toolbox_module_requirement_met( $slug ) ) {
+            continue;
+        }
+
         $module_file = DP_TOOLBOX_PATH . 'modules/' . $slug . '/' . $slug . '.php';
         if ( file_exists( $module_file ) ) {
             require_once $module_file;

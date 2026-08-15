@@ -17,6 +17,7 @@ Design Pixels gereedschapskist voor WordPress. Een modulaire verzameling van sit
 - **Custom Login URL** — Verplaats wp-login.php naar eigen URL
 - **Maintenance Mode** — Site offline voor bezoekers
 - **Revision Limiter** — Beperk aantal post-revisies
+- **Etch GSAP** — GSAP + ScrollTrigger op Etch-sites, met een kleine set scroll-animaties via `data-dp-anim` / `data-dp-stagger`. Alleen in te schakelen wanneer Etch actief is; op Bricks-sites wordt er niets geladen.
 - **Attribute Pricing** (WooCommerce) — Extra options tab op simpele producten met meerprijs per attribuut-waarde, zonder variaties
 - **Free Shipping Bar** (WooCommerce) — Voortgangsbalk "Nog €X tot gratis verzending" in cart en mini-cart
 - **Low Stock Urgency** (WooCommerce) — "Nog X stuks beschikbaar!" indicator op de productpagina bij lage voorraad
@@ -34,6 +35,18 @@ Voor automatische updates vanaf GitHub: installeer [Git Updater](https://git-upd
 ## Versiebeheer
 
 Deze plugin volgt semantic versioning. De huidige versie staat in de plugin-header van `dp-toolbox.php`.
+
+## Licentie
+
+DP Toolbox zelf is GPL-2.0-or-later (zie `LICENSE`).
+
+**Uitzondering — meegeleverde software van derden.** De module `etch-gsap` bundelt GSAP en
+ScrollTrigger 3.13.0 (`modules/etch-gsap/assets/gsap.min.js`, `ScrollTrigger.min.js`).
+Die bestanden zijn © GreenSock, vallen onder de GSAP-standaardlicentie
+(https://gsap.com/standard-license) en **niet** onder de GPL van deze plugin. Gebruik is
+gratis, ook commercieel; ze mogen niet onder GPL-voorwaarden worden doorgegeven.
+Alle overige bestanden in de module (`etch-gsap.php`, `dp-motion.js`, `dp-motion.css`)
+zijn wél GPL.
 
 ## Auteur
 
