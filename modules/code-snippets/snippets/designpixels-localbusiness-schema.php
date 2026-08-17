@@ -2,9 +2,9 @@
 /**
  * Name: Design Pixels — LocalBusiness-schema
  * Description: Zet het LocalBusiness JSON-LD in de <head> van designpixels.nl: adres, telefoon, openingstijden, servicegebied en socialprofielen. Deelt bewust hetzelfde @id als het Organization-blok van The SEO Framework, zodat beide nodes bij het uitlezen tot één entiteit samensmelten. Aanpassen doe je in dp_localbusiness_data() — de rest volgt automatisch.
- * Sites: designpixels.nl
+ * Sites: designpixels.nl,zoomthroat.s2-tastewp.com
  * Status: active
- * Version: 1.1.0
+ * Version: 1.2.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

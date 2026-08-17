@@ -4,7 +4,7 @@
  * Description: Bricks zet font-display:block op zijn Font Awesome @font-face-regels, wat tekst laat wachten op het icoonfont (FOIT) en de First Contentful Paint vertraagt. Deze snippet schrijft dezelfde @font-face-regels opnieuw met font-display:swap; omdat de laatste declaratie wint, geldt swap. De URL's zijn identiek aan die van Bricks, dus de browser haalt niets extra's op.
  * Sites: designpixels.nl
  * Status: active
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -12,6 +12,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 add_action( 'wp_head', function () {
+    /*
+     * Alleen zinvol onder Bricks: de URL's hieronder wijzen naar Bricks' eigen
+     * Font Awesome-bestanden. Draait designpixels.nl straks op Etch, dan zouden
+     * dit @font-face-regels worden naar bestanden die niet bestaan.
+     */
+    if ( 'bricks' !== get_template() ) {
+        return;
+    }
+
     $base = get_template_directory_uri() . '/assets/fonts/fontawesome';
     ?>
 <style id="dp-fa-display-swap">

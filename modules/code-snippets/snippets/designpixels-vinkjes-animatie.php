@@ -4,7 +4,7 @@
  * Description: De vinkjes in de sectie "Ontdek de voordelen" op de homepage beginnen grijs en kleuren gestaffeld naar de merkkleur zodra de sectie in beeld komt. Gebonden aan Bricks-element #brxe-haytut — verdwijnt die sectie of gaat de site naar Etch, dan doet deze snippet niets meer en kan hij weg.
  * Sites: designpixels.nl
  * Status: active
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -12,7 +12,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 add_action( 'wp_footer', function () {
-    if ( ! is_front_page() ) {
+    // Element-ID en klassen komen uit Bricks; onder een ander thema doet dit niets.
+    if ( 'bricks' !== get_template() || ! is_front_page() ) {
         return;
     }
     ?>

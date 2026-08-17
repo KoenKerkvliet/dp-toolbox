@@ -2,9 +2,9 @@
 /**
  * Name: Design Pixels — FAQPage-schema
  * Description: Bouwt het FAQPage JSON-LD op /faq/ dynamisch uit de faq-items CPT, zodat een nieuwe of gewijzigde vraag automatisch in het schema landt zonder handwerk.
- * Sites: designpixels.nl
+ * Sites: designpixels.nl,zoomthroat.s2-tastewp.com
  * Status: active
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
