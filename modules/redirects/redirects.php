@@ -2,7 +2,7 @@
 /**
  * Module Name: Redirects
  * Description: Beheer 301/302 redirects vanuit WordPress — zonder extra plugin.
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -21,6 +21,18 @@ function dp_toolbox_redirects_get_all() {
 /*  Handle redirects on every frontend request                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Bouw het regex-patroon voor een regel.
+ *
+ * Het scheidingsteken wordt in het patroon zelf ge-escaped. Zonder dat levert
+ * een 'van'-waarde die het scheidingsteken bevat een ongeldig patroon op, en
+ * omdat preg_match dan false teruggeeft matcht die regel gewoon nooit — stil,
+ * zonder melding, en dus lastig te vinden.
+ */
+function dp_toolbox_redirects_patroon( $van ) {
+    return '#^' . str_replace( '#', '\#', $van ) . '$#i';
+}
+
 add_action( 'template_redirect', function () {
     if ( is_admin() ) {
         return;
@@ -36,39 +48,63 @@ add_action( 'template_redirect', function () {
         $request_path = '/';
     }
 
-    foreach ( $redirects as $id => &$rule ) {
-        if ( empty( $rule['from'] ) || empty( $rule['to'] ) || empty( $rule['active'] ) ) {
+    $gevonden = null;
+    $target   = '';
+
+    /*
+     * Exacte regels eerst, via een directe lookup in plaats van een lus. Die
+     * vormen in de praktijk het leeuwendeel, en deze code draait op élke
+     * front-end request — ook op pagina's die gewoon bestaan.
+     */
+    $exact = [];
+    foreach ( $redirects as $id => $rule ) {
+        if ( empty( $rule['from'] ) || empty( $rule['to'] ) || empty( $rule['active'] ) || ! empty( $rule['regex'] ) ) {
             continue;
         }
+        $exact[ strtolower( rtrim( $rule['from'], '/' ) ) ] = $id;
+    }
 
-        $from = rtrim( $rule['from'], '/' );
-        $matched = false;
-
-        // Regex match
-        if ( ! empty( $rule['regex'] ) ) {
-            if ( @preg_match( '#^' . $from . '$#i', $request_path ) ) {
-                $target = preg_replace( '#^' . $from . '$#i', $rule['to'], $request_path );
-                $matched = true;
+    $sleutel = strtolower( $request_path );
+    if ( isset( $exact[ $sleutel ] ) ) {
+        $gevonden = $exact[ $sleutel ];
+        $target   = $redirects[ $gevonden ]['to'];
+    } else {
+        // Pas daarna de regex-regels langs.
+        foreach ( $redirects as $id => $rule ) {
+            if ( empty( $rule['from'] ) || empty( $rule['to'] ) || empty( $rule['active'] ) || empty( $rule['regex'] ) ) {
+                continue;
             }
-        } else {
-            // Exact match (case-insensitive)
-            if ( strcasecmp( $from, $request_path ) === 0 ) {
-                $target = $rule['to'];
-                $matched = true;
+            $patroon = dp_toolbox_redirects_patroon( rtrim( $rule['from'], '/' ) );
+            if ( @preg_match( $patroon, $request_path ) === 1 ) {
+                $gevonden = $id;
+                $target   = preg_replace( $patroon, $rule['to'], $request_path );
+                break;
             }
-        }
-
-        if ( $matched ) {
-            // Update hit counter
-            $rule['hits'] = ( $rule['hits'] ?? 0 ) + 1;
-            $rule['last_hit'] = current_time( 'mysql' );
-            update_option( 'dp_toolbox_redirects', $redirects, false );
-
-            $code = (int) ( $rule['type'] ?? 301 );
-            wp_redirect( $target, $code );
-            exit;
         }
     }
+
+    if ( null === $gevonden ) {
+        return;
+    }
+
+    /*
+     * De teller pas bijwerken op 'shutdown'. Die draait ná het versturen van de
+     * redirect, dus de bezoeker — of de crawler die tijdens een migratie je hele
+     * oude URL-set aftikt — wacht niet op een databaseschrijfactie.
+     */
+    add_action( 'shutdown', function () use ( $gevonden ) {
+        $actueel = dp_toolbox_redirects_get_all();
+        if ( ! isset( $actueel[ $gevonden ] ) ) {
+            return;
+        }
+        $actueel[ $gevonden ]['hits']     = ( $actueel[ $gevonden ]['hits'] ?? 0 ) + 1;
+        $actueel[ $gevonden ]['last_hit'] = current_time( 'mysql' );
+        update_option( 'dp_toolbox_redirects', $actueel, false );
+    } );
+
+    $code = (int) ( $redirects[ $gevonden ]['type'] ?? 301 );
+    wp_redirect( $target, $code );
+    exit;
 }, 1 ); // Priority 1: before other plugins
 
 /* ------------------------------------------------------------------ */
@@ -99,8 +135,9 @@ add_action( 'wp_ajax_dp_toolbox_redirect_save', function () {
         $from = '/' . $from;
     }
 
-    // Validate regex
-    if ( $regex && @preg_match( '#^' . $from . '$#i', '' ) === false ) {
+    // Validate regex — via dezelfde patroonbouwer als de matching, zodat
+    // validatie en uitvoering nooit uit elkaar kunnen lopen.
+    if ( $regex && @preg_match( dp_toolbox_redirects_patroon( $from ), '' ) === false ) {
         wp_send_json_error( 'Ongeldige reguliere expressie.' );
     }
 
