@@ -1,9 +1,9 @@
 <?php
 /**
  * Module Name: Inzendingen
- * Description: Volledig overzicht van alle Bit Form-inzendingen — filteren per formulier, zoeken, detailweergave, CSV-export en verwijderen. Voegt een eigen 'Inzendingen'-menu toe.
+ * Description: Volledig overzicht van alle formulier-inzendingen (Bit Form en JetFormBuilder) — filteren per formulier, zoeken, detailweergave, CSV-export en verwijderen. Voegt een eigen 'Inzendingen'-menu toe.
  * Category: content
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -11,13 +11,59 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Bit Form detectie                                                  */
+/*  Bronnen                                                            */
+/*                                                                     */
+/*  De module bediende oorspronkelijk alleen Bit Form. Sinds 1.1.0      */
+/*  komen daar JetFormBuilder-inzendingen bij, in hetzelfde overzicht.  */
+/*  Formulieren en inzendingen krijgen daarom een samengestelde sleutel */
+/*  ("bf:12" / "jfb:197"), zodat de id's van beide plugins elkaar niet  */
+/*  in de weg zitten.                                                   */
 /* ------------------------------------------------------------------ */
 
-function dp_toolbox_submissions_active() {
+function dp_toolbox_submissions_heeft_bitform() {
     global $wpdb;
-    $table = $wpdb->prefix . 'bitforms_form_entries';
-    return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table;
+    $t = $wpdb->prefix . 'bitforms_form_entries';
+    return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $t ) ) === $t;
+}
+
+function dp_toolbox_submissions_heeft_jfb() {
+    global $wpdb;
+    $t = $wpdb->prefix . 'jet_fb_records';
+    return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $t ) ) === $t;
+}
+
+function dp_toolbox_submissions_bronnen() {
+    $b = [];
+    if ( dp_toolbox_submissions_heeft_bitform() ) {
+        $b['bf'] = 'Bit Form';
+    }
+    if ( dp_toolbox_submissions_heeft_jfb() ) {
+        $b['jfb'] = 'JetFormBuilder';
+    }
+    return $b;
+}
+
+function dp_toolbox_submissions_active() {
+    return (bool) dp_toolbox_submissions_bronnen();
+}
+
+/**
+ * "bf:12" → [ 'bf', 12 ]. Zonder prefix nemen we Bit Form aan, zodat oude
+ * bladwijzers en links naar ?entry=34 blijven werken.
+ */
+function dp_toolbox_submissions_split( $sleutel ) {
+    $sleutel = (string) $sleutel;
+    if ( strpos( $sleutel, ':' ) !== false ) {
+        list( $bron, $id ) = explode( ':', $sleutel, 2 );
+        if ( in_array( $bron, [ 'bf', 'jfb' ], true ) ) {
+            return [ $bron, (int) $id ];
+        }
+    }
+    return [ 'bf', (int) $sleutel ];
+}
+
+function dp_toolbox_submissions_sleutel( $bron, $id ) {
+    return $bron . ':' . (int) $id;
 }
 
 /* ------------------------------------------------------------------ */
@@ -26,7 +72,7 @@ function dp_toolbox_submissions_active() {
 
 add_action( 'admin_menu', function () {
     if ( ! dp_toolbox_submissions_active() ) {
-        return; // Geen Bit Form → geen menu
+        return; // Geen formulierplugin met inzendingen → geen menu
     }
     add_menu_page(
         'Inzendingen',
@@ -47,12 +93,16 @@ add_action( 'admin_menu', function () {
  * Velddefinities van een formulier (key => label/type/fieldName).
  * Leest form_content['fields'] correct (niet het top-level object).
  */
-function dp_toolbox_submissions_get_fields( $form_id ) {
+function dp_toolbox_submissions_get_fields( $form_key ) {
     global $wpdb;
     static $cache = [];
-    $form_id = (int) $form_id;
-    if ( isset( $cache[ $form_id ] ) ) {
-        return $cache[ $form_id ];
+    if ( isset( $cache[ $form_key ] ) ) {
+        return $cache[ $form_key ];
+    }
+    list( $bron, $form_id ) = dp_toolbox_submissions_split( $form_key );
+
+    if ( 'jfb' === $bron ) {
+        return $cache[ $form_key ] = dp_toolbox_submissions_jfb_fields( $form_id );
     }
 
     $content = $wpdb->get_var( $wpdb->prepare(
@@ -79,7 +129,48 @@ function dp_toolbox_submissions_get_fields( $form_id ) {
         }
     }
 
-    $cache[ $form_id ] = $fields;
+    $cache[ $form_key ] = $fields;
+    return $fields;
+}
+
+/**
+ * Velddefinities van een JetFormBuilder-formulier.
+ *
+ * Die staan niet in een eigen tabel maar als Gutenberg-blokken in de
+ * post_content van het formulier (post type jet-form-builder). We lopen de
+ * blokstructuur af en pakken elk jet-forms/*-field met een 'name'.
+ */
+function dp_toolbox_submissions_jfb_fields( $form_id ) {
+    $post = get_post( (int) $form_id );
+    if ( ! $post || 'jet-form-builder' !== $post->post_type ) {
+        return [];
+    }
+
+    $fields = [];
+    $loop   = function ( $blokken ) use ( &$loop, &$fields ) {
+        foreach ( $blokken as $b ) {
+            $naam = $b['blockName'] ?? '';
+            if ( 0 === strpos( $naam, 'jet-forms/' ) && ! empty( $b['attrs']['name'] ) ) {
+                $type = str_replace( [ 'jet-forms/', '-field' ], '', $naam );
+                // Een tekstveld met field_type 'email' is voor ons een e-mailveld.
+                if ( 'text' === $type && ! empty( $b['attrs']['field_type'] ) ) {
+                    $type = $b['attrs']['field_type'];
+                }
+                $sleutel = (string) $b['attrs']['name'];
+                $fields[ $sleutel ] = [
+                    'label'     => isset( $b['attrs']['label'] ) ? trim( wp_strip_all_tags( $b['attrs']['label'] ) ) : '',
+                    'type'      => $type,
+                    'fieldName' => $sleutel,
+                    'adminLbl'  => '',
+                ];
+            }
+            if ( ! empty( $b['innerBlocks'] ) ) {
+                $loop( $b['innerBlocks'] );
+            }
+        }
+    };
+    $loop( parse_blocks( $post->post_content ) );
+
     return $fields;
 }
 
@@ -167,104 +258,292 @@ function dp_toolbox_submissions_summary( $form_id, $meta ) {
  */
 function dp_toolbox_submissions_forms() {
     global $wpdb;
-    $te = $wpdb->prefix . 'bitforms_form_entries';
-    $tf = $wpdb->prefix . 'bitforms_form';
-    return $wpdb->get_results( "
-        SELECT f.id, f.form_name, COUNT( e.id ) AS cnt
-        FROM {$tf} f
-        LEFT JOIN {$te} e ON e.form_id = f.id
-        GROUP BY f.id
-        ORDER BY f.form_name ASC
-    " );
+    $uit = [];
+
+    if ( dp_toolbox_submissions_heeft_bitform() ) {
+        $te = $wpdb->prefix . 'bitforms_form_entries';
+        $tf = $wpdb->prefix . 'bitforms_form';
+        foreach ( (array) $wpdb->get_results( "
+            SELECT f.id, f.form_name, COUNT( e.id ) AS cnt
+            FROM {$tf} f
+            LEFT JOIN {$te} e ON e.form_id = f.id
+            GROUP BY f.id
+        " ) as $r ) {
+            $uit[] = (object) [
+                'key'       => dp_toolbox_submissions_sleutel( 'bf', $r->id ),
+                'form_name' => $r->form_name,
+                'cnt'       => (int) $r->cnt,
+                'bron'      => 'Bit Form',
+            ];
+        }
+    }
+
+    if ( dp_toolbox_submissions_heeft_jfb() ) {
+        $tr = $wpdb->prefix . 'jet_fb_records';
+        $tellingen = [];
+        foreach ( (array) $wpdb->get_results( "SELECT form_id, COUNT(*) AS cnt FROM {$tr} GROUP BY form_id" ) as $r ) {
+            $tellingen[ (int) $r->form_id ] = (int) $r->cnt;
+        }
+        foreach ( get_posts( [ 'post_type' => 'jet-form-builder', 'numberposts' => -1, 'post_status' => 'any' ] ) as $f ) {
+            $uit[] = (object) [
+                'key'       => dp_toolbox_submissions_sleutel( 'jfb', $f->ID ),
+                'form_name' => $f->post_title,
+                'cnt'       => $tellingen[ $f->ID ] ?? 0,
+                'bron'      => 'JetFormBuilder',
+            ];
+        }
+    }
+
+    usort( $uit, function ( $a, $b ) { return strcasecmp( $a->form_name, $b->form_name ); } );
+    return $uit;
 }
 
 /**
  * Gefilterde/gezochte inzendingen ophalen. Zonder per_page: alles (voor export).
  * Retour: [ rows, total ].
  */
+/**
+ * Inzendingen van álle bronnen, gefilterd en gezocht.
+ *
+ * De twee plugins bewaren hun data in losstaande tabellen die niet zinnig te
+ * JOIN-en zijn. We halen daarom per bron op, voegen samen, sorteren op datum en
+ * pagineren in PHP. Bij de aantallen waar dit om gaat (honderden inzendingen)
+ * is dat ruim snel genoeg en een stuk begrijpelijker dan een UNION.
+ *
+ * Retour: [ rows, total ]. Elke row heeft: key, id, bron, form_key, form_name,
+ * created_at, user_ip.
+ */
 function dp_toolbox_submissions_query( $args ) {
     global $wpdb;
-    $te = $wpdb->prefix . 'bitforms_form_entries';
-    $tf = $wpdb->prefix . 'bitforms_form';
-    $tm = $wpdb->prefix . 'bitforms_form_entrymeta';
 
-    $where  = '1=1';
-    $params = [];
-
+    $filter_bron = '';
+    $filter_id   = 0;
     if ( ! empty( $args['form_id'] ) ) {
-        $where   .= ' AND e.form_id = %d';
-        $params[] = (int) $args['form_id'];
+        list( $filter_bron, $filter_id ) = dp_toolbox_submissions_split( $args['form_id'] );
     }
-    if ( ! empty( $args['search'] ) ) {
-        $like     = '%' . $wpdb->esc_like( $args['search'] ) . '%';
-        $where   .= " AND ( e.id IN ( SELECT bitforms_form_entry_id FROM {$tm} WHERE meta_value LIKE %s ) OR f.form_name LIKE %s )";
-        $params[] = $like;
-        $params[] = $like;
+    $zoek = trim( (string) ( $args['search'] ?? '' ) );
+    $alle = [];
+
+    /* --- Bit Form --- */
+    if ( dp_toolbox_submissions_heeft_bitform() && ( ! $filter_bron || 'bf' === $filter_bron ) ) {
+        $te = $wpdb->prefix . 'bitforms_form_entries';
+        $tf = $wpdb->prefix . 'bitforms_form';
+        $tm = $wpdb->prefix . 'bitforms_form_entrymeta';
+
+        $where  = '1=1';
+        $params = [];
+        if ( $filter_id ) {
+            $where   .= ' AND e.form_id = %d';
+            $params[] = $filter_id;
+        }
+        if ( '' !== $zoek ) {
+            $like     = '%' . $wpdb->esc_like( $zoek ) . '%';
+            $where   .= " AND ( e.id IN ( SELECT bitforms_form_entry_id FROM {$tm} WHERE meta_value LIKE %s ) OR f.form_name LIKE %s )";
+            $params[] = $like;
+            $params[] = $like;
+        }
+        $sql = "SELECT e.id, e.form_id, e.created_at, e.user_ip, f.form_name
+                FROM {$te} e LEFT JOIN {$tf} f ON e.form_id = f.id
+                WHERE {$where}";
+        $rows = $params ? $wpdb->get_results( $wpdb->prepare( $sql, $params ) ) : $wpdb->get_results( $sql );
+
+        foreach ( (array) $rows as $r ) {
+            $alle[] = (object) [
+                'key'        => dp_toolbox_submissions_sleutel( 'bf', $r->id ),
+                'id'         => (int) $r->id,
+                'bron'       => 'bf',
+                'form_key'   => dp_toolbox_submissions_sleutel( 'bf', $r->form_id ),
+                'form_name'  => $r->form_name,
+                'created_at' => $r->created_at,
+                'user_ip'    => $r->user_ip,
+            ];
+        }
     }
 
-    $count_sql = "SELECT COUNT(*) FROM {$te} e LEFT JOIN {$tf} f ON e.form_id = f.id WHERE {$where}";
-    $total     = (int) ( $params
-        ? $wpdb->get_var( $wpdb->prepare( $count_sql, $params ) )
-        : $wpdb->get_var( $count_sql ) );
+    /* --- JetFormBuilder --- */
+    if ( dp_toolbox_submissions_heeft_jfb() && ( ! $filter_bron || 'jfb' === $filter_bron ) ) {
+        $tr = $wpdb->prefix . 'jet_fb_records';
+        $tv = $wpdb->prefix . 'jet_fb_records_fields';
 
-    $select = "SELECT e.id, e.form_id, e.created_at, e.user_ip, f.form_name
-        FROM {$te} e
-        LEFT JOIN {$tf} f ON e.form_id = f.id
-        WHERE {$where}
-        ORDER BY e.created_at DESC";
+        $where  = '1=1';
+        $params = [];
+        if ( $filter_id ) {
+            $where   .= ' AND r.form_id = %d';
+            $params[] = $filter_id;
+        }
+        if ( '' !== $zoek ) {
+            $like     = '%' . $wpdb->esc_like( $zoek ) . '%';
+            $where   .= " AND r.id IN ( SELECT record_id FROM {$tv} WHERE field_value LIKE %s )";
+            $params[] = $like;
+        }
+        $sql  = "SELECT r.id, r.form_id, r.created_at, r.ip_address FROM {$tr} r WHERE {$where}";
+        $rows = $params ? $wpdb->get_results( $wpdb->prepare( $sql, $params ) ) : $wpdb->get_results( $sql );
+
+        $namen = [];
+        foreach ( (array) $rows as $r ) {
+            $fid = (int) $r->form_id;
+            if ( ! isset( $namen[ $fid ] ) ) {
+                $namen[ $fid ] = get_the_title( $fid ) ?: '';
+            }
+            $alle[] = (object) [
+                'key'        => dp_toolbox_submissions_sleutel( 'jfb', $r->id ),
+                'id'         => (int) $r->id,
+                'bron'       => 'jfb',
+                'form_key'   => dp_toolbox_submissions_sleutel( 'jfb', $fid ),
+                'form_name'  => $namen[ $fid ],
+                'created_at' => $r->created_at,
+                'user_ip'    => $r->ip_address,
+            ];
+        }
+
+        // Aanvullen met treffers op formuliernaam, die de SQL hierboven mist.
+        if ( '' !== $zoek ) {
+            $gevonden = wp_list_pluck( $alle, 'key' );
+            $posts    = get_posts( [
+                'post_type'   => 'jet-form-builder',
+                'numberposts' => -1,
+                'post_status' => 'any',
+                's'           => $zoek,
+            ] );
+            foreach ( $posts as $p ) {
+                if ( $filter_id && (int) $p->ID !== $filter_id ) {
+                    continue;
+                }
+                $extra = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT id, form_id, created_at, ip_address FROM {$tr} WHERE form_id = %d",
+                    $p->ID
+                ) );
+                foreach ( (array) $extra as $r ) {
+                    $k = dp_toolbox_submissions_sleutel( 'jfb', $r->id );
+                    if ( in_array( $k, $gevonden, true ) ) {
+                        continue;
+                    }
+                    $alle[] = (object) [
+                        'key'        => $k,
+                        'id'         => (int) $r->id,
+                        'bron'       => 'jfb',
+                        'form_key'   => dp_toolbox_submissions_sleutel( 'jfb', $r->form_id ),
+                        'form_name'  => $p->post_title,
+                        'created_at' => $r->created_at,
+                        'user_ip'    => $r->ip_address,
+                    ];
+                }
+            }
+        }
+    }
+
+    usort( $alle, function ( $a, $b ) {
+        return strtotime( $b->created_at ) <=> strtotime( $a->created_at );
+    } );
+
+    $total = count( $alle );
 
     if ( ! empty( $args['per_page'] ) ) {
-        $per          = max( 1, (int) $args['per_page'] );
-        $paged        = max( 1, (int) ( $args['paged'] ?? 1 ) );
-        $offset       = ( $paged - 1 ) * $per;
-        $select      .= ' LIMIT %d OFFSET %d';
-        $list_params  = array_merge( $params, [ $per, $offset ] );
-        $rows         = $wpdb->get_results( $wpdb->prepare( $select, $list_params ) );
-    } else {
-        $rows = $params
-            ? $wpdb->get_results( $wpdb->prepare( $select, $params ) )
-            : $wpdb->get_results( $select );
+        $per    = max( 1, (int) $args['per_page'] );
+        $paged  = max( 1, (int) ( $args['paged'] ?? 1 ) );
+        $alle   = array_slice( $alle, ( $paged - 1 ) * $per, $per );
     }
 
-    return [ $rows, $total ];
+    return [ $alle, $total ];
 }
 
 /**
  * Meta-waarden voor een set entry-IDs. Retour: [ entry_id => [ key => value ] ].
  */
-function dp_toolbox_submissions_meta_for( $entry_ids ) {
+function dp_toolbox_submissions_meta_for( $entry_keys ) {
     global $wpdb;
-    $entry_ids = array_filter( array_map( 'intval', (array) $entry_ids ) );
-    if ( empty( $entry_ids ) ) {
-        return [];
+    $bf = [];
+    $jfb = [];
+    foreach ( (array) $entry_keys as $k ) {
+        list( $bron, $id ) = dp_toolbox_submissions_split( $k );
+        if ( ! $id ) {
+            continue;
+        }
+        if ( 'jfb' === $bron ) {
+            $jfb[] = $id;
+        } else {
+            $bf[] = $id;
+        }
     }
-    $tm  = $wpdb->prefix . 'bitforms_form_entrymeta';
-    $ids = implode( ',', $entry_ids );
-    $rows = $wpdb->get_results( "
-        SELECT bitforms_form_entry_id, meta_key, meta_value
-        FROM {$tm}
-        WHERE bitforms_form_entry_id IN ( {$ids} )
-    " );
+
     $out = [];
-    foreach ( $rows as $r ) {
-        $out[ $r->bitforms_form_entry_id ][ $r->meta_key ] = $r->meta_value;
+
+    if ( $bf ) {
+        $tm  = $wpdb->prefix . 'bitforms_form_entrymeta';
+        $ids = implode( ',', array_map( 'intval', $bf ) );
+        foreach ( (array) $wpdb->get_results( "
+            SELECT bitforms_form_entry_id AS eid, meta_key, meta_value
+            FROM {$tm} WHERE bitforms_form_entry_id IN ( {$ids} )
+        " ) as $r ) {
+            $out[ dp_toolbox_submissions_sleutel( 'bf', $r->eid ) ][ $r->meta_key ] = $r->meta_value;
+        }
     }
+
+    if ( $jfb ) {
+        $tv  = $wpdb->prefix . 'jet_fb_records_fields';
+        $ids = implode( ',', array_map( 'intval', $jfb ) );
+        foreach ( (array) $wpdb->get_results( "
+            SELECT record_id AS eid, field_name, field_value
+            FROM {$tv} WHERE record_id IN ( {$ids} )
+        " ) as $r ) {
+            $out[ dp_toolbox_submissions_sleutel( 'jfb', $r->eid ) ][ $r->field_name ] = $r->field_value;
+        }
+    }
+
     return $out;
 }
 
 /**
  * Losse inzending ophalen (voor de detailweergave).
  */
-function dp_toolbox_submissions_get_entry( $entry_id ) {
+function dp_toolbox_submissions_get_entry( $entry_key ) {
     global $wpdb;
-    $te = $wpdb->prefix . 'bitforms_form_entries';
-    $tf = $wpdb->prefix . 'bitforms_form';
-    return $wpdb->get_row( $wpdb->prepare( "
+    list( $bron, $id ) = dp_toolbox_submissions_split( $entry_key );
+    if ( ! $id ) {
+        return null;
+    }
+
+    if ( 'jfb' === $bron ) {
+        $tr  = $wpdb->prefix . 'jet_fb_records';
+        $row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, form_id, created_at, ip_address, user_agent, status FROM {$tr} WHERE id = %d",
+            $id
+        ) );
+        if ( ! $row ) {
+            return null;
+        }
+        return (object) [
+            'key'         => dp_toolbox_submissions_sleutel( 'jfb', $row->id ),
+            'id'          => (int) $row->id,
+            'bron'        => 'jfb',
+            'form_key'    => dp_toolbox_submissions_sleutel( 'jfb', $row->form_id ),
+            'form_name'   => get_the_title( (int) $row->form_id ) ?: '',
+            'created_at'  => $row->created_at,
+            'user_ip'     => $row->ip_address,
+            'user_device' => $row->user_agent,
+        ];
+    }
+
+    $te  = $wpdb->prefix . 'bitforms_form_entries';
+    $tf  = $wpdb->prefix . 'bitforms_form';
+    $row = $wpdb->get_row( $wpdb->prepare( "
         SELECT e.id, e.form_id, e.created_at, e.user_ip, e.user_device, f.form_name
-        FROM {$te} e
-        LEFT JOIN {$tf} f ON e.form_id = f.id
+        FROM {$te} e LEFT JOIN {$tf} f ON e.form_id = f.id
         WHERE e.id = %d
-    ", (int) $entry_id ) );
+    ", $id ) );
+    if ( ! $row ) {
+        return null;
+    }
+    return (object) [
+        'key'         => dp_toolbox_submissions_sleutel( 'bf', $row->id ),
+        'id'          => (int) $row->id,
+        'bron'        => 'bf',
+        'form_key'    => dp_toolbox_submissions_sleutel( 'bf', $row->form_id ),
+        'form_name'   => $row->form_name,
+        'created_at'  => $row->created_at,
+        'user_ip'     => $row->user_ip,
+        'user_device' => $row->user_device,
+    ];
 }
 
 /**
@@ -289,18 +568,26 @@ add_action( 'admin_post_dp_toolbox_submissions_delete', function () {
     if ( ! current_user_can( 'manage_options' ) ) {
         wp_die( 'Geen toestemming.' );
     }
-    $entry_id = (int) ( $_GET['entry'] ?? 0 );
-    check_admin_referer( 'dp_submissions_delete_' . $entry_id );
+    $entry_key = isset( $_GET['entry'] ) ? sanitize_text_field( wp_unslash( $_GET['entry'] ) ) : '';
+    check_admin_referer( 'dp_submissions_delete_' . $entry_key );
+
+    list( $bron, $entry_id ) = dp_toolbox_submissions_split( $entry_key );
 
     if ( $entry_id ) {
         global $wpdb;
-        $wpdb->delete( $wpdb->prefix . 'bitforms_form_entries',   [ 'id' => $entry_id ] );
-        $wpdb->delete( $wpdb->prefix . 'bitforms_form_entrymeta', [ 'bitforms_form_entry_id' => $entry_id ] );
-        // Best-effort opruimen van gekoppelde logs (kolomnamen kunnen per versie verschillen).
-        $wpdb->query( $wpdb->prepare(
-            "DELETE FROM {$wpdb->prefix}bitforms_form_entry_log WHERE form_entry_id = %d",
-            $entry_id
-        ) );
+        if ( 'jfb' === $bron ) {
+            $wpdb->delete( $wpdb->prefix . 'jet_fb_records',         [ 'id' => $entry_id ] );
+            $wpdb->delete( $wpdb->prefix . 'jet_fb_records_fields',  [ 'record_id' => $entry_id ] );
+            $wpdb->delete( $wpdb->prefix . 'jet_fb_records_actions', [ 'record_id' => $entry_id ] );
+        } else {
+            $wpdb->delete( $wpdb->prefix . 'bitforms_form_entries',   [ 'id' => $entry_id ] );
+            $wpdb->delete( $wpdb->prefix . 'bitforms_form_entrymeta', [ 'bitforms_form_entry_id' => $entry_id ] );
+            // Best-effort opruimen van gekoppelde logs (kolomnamen kunnen per versie verschillen).
+            $wpdb->query( $wpdb->prepare(
+                "DELETE FROM {$wpdb->prefix}bitforms_form_entry_log WHERE form_entry_id = %d",
+                $entry_id
+            ) );
+        }
     }
 
     $back = add_query_arg(
@@ -330,7 +617,7 @@ add_action( 'admin_post_dp_toolbox_submissions_export', function () {
     }
     check_admin_referer( 'dp_submissions_export' );
 
-    $form_id = (int) ( $_GET['form_id'] ?? 0 );
+    $form_id = isset( $_GET['form_id'] ) ? sanitize_text_field( wp_unslash( $_GET['form_id'] ) ) : '';
     $search  = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
 
     list( $rows ) = dp_toolbox_submissions_query( [
@@ -338,7 +625,7 @@ add_action( 'admin_post_dp_toolbox_submissions_export', function () {
         'search'  => $search,
     ] );
 
-    $meta = dp_toolbox_submissions_meta_for( wp_list_pluck( $rows, 'id' ) );
+    $meta = dp_toolbox_submissions_meta_for( wp_list_pluck( $rows, 'key' ) );
 
     $filename = 'inzendingen-' . gmdate( 'Y-m-d' ) . '.csv';
     nocache_headers();
@@ -362,10 +649,10 @@ add_action( 'admin_post_dp_toolbox_submissions_export', function () {
         fputcsv( $out, array_map( 'dp_toolbox_submissions_csv_cell', $header ) );
 
         foreach ( $rows as $r ) {
-            $m   = $meta[ $r->id ] ?? [];
+            $m   = $meta[ $r->key ] ?? [];
             $row = [
                 date_i18n( 'Y-m-d H:i', strtotime( $r->created_at ) ),
-                $r->form_name ?: ( 'Formulier #' . $r->form_id ),
+                $r->form_name ?: $r->form_key,
             ];
             foreach ( $cols as $key => $label ) {
                 $row[] = dp_toolbox_submissions_format_value( $m[ $key ] ?? '', $fields[ $key ]['type'] ?? '' );
@@ -378,9 +665,9 @@ add_action( 'admin_post_dp_toolbox_submissions_export', function () {
         fputcsv( $out, array_map( 'dp_toolbox_submissions_csv_cell', [ 'Datum', 'Formulier', 'Naam', 'E-mail', 'IP', 'Inhoud' ] ) );
 
         foreach ( $rows as $r ) {
-            $m               = $meta[ $r->id ] ?? [];
-            list( $name, $email ) = dp_toolbox_submissions_summary( $r->form_id, $m );
-            $fields          = dp_toolbox_submissions_get_fields( $r->form_id );
+            $m               = $meta[ $r->key ] ?? [];
+            list( $name, $email ) = dp_toolbox_submissions_summary( $r->form_key, $m );
+            $fields          = dp_toolbox_submissions_get_fields( $r->form_key );
             $bits            = [];
             foreach ( $fields as $key => $info ) {
                 if ( ! dp_toolbox_submissions_is_data_field( $info ) ) {
@@ -393,7 +680,7 @@ add_action( 'admin_post_dp_toolbox_submissions_export', function () {
             }
             fputcsv( $out, array_map( 'dp_toolbox_submissions_csv_cell', [
                 date_i18n( 'Y-m-d H:i', strtotime( $r->created_at ) ),
-                $r->form_name ?: ( 'Formulier #' . $r->form_id ),
+                $r->form_name ?: $r->form_key,
                 $name,
                 $email,
                 dp_toolbox_submissions_format_ip( $r->user_ip ),
@@ -416,7 +703,7 @@ function dp_toolbox_submissions_render_page() {
     }
 
     // Detailweergave?
-    $entry_id = isset( $_GET['entry'] ) ? (int) $_GET['entry'] : 0;
+    $entry_id = isset( $_GET['entry'] ) ? sanitize_text_field( wp_unslash( $_GET['entry'] ) ) : '';
     if ( $entry_id ) {
         dp_toolbox_submissions_render_detail( $entry_id );
         return;
@@ -428,7 +715,7 @@ function dp_toolbox_submissions_render_page() {
  * Lijstweergave met filter, zoeken, tabel, paginering en export.
  */
 function dp_toolbox_submissions_render_list() {
-    $form_id  = isset( $_GET['form_id'] ) ? (int) $_GET['form_id'] : 0;
+    $form_id  = isset( $_GET['form_id'] ) ? sanitize_text_field( wp_unslash( $_GET['form_id'] ) ) : '';
     $search   = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
     $paged    = isset( $_GET['paged'] ) ? max( 1, (int) $_GET['paged'] ) : 1;
     $per_page = 20;
@@ -471,10 +758,18 @@ function dp_toolbox_submissions_render_list() {
             <input type="hidden" name="page" value="dp-submissions">
 
             <select name="form_id" onchange="this.form.submit()">
-                <option value="0">Alle formulieren</option>
+                <option value="">Alle formulieren</option>
                 <?php foreach ( $forms as $f ) : ?>
-                    <option value="<?php echo (int) $f->id; ?>" <?php selected( $form_id, (int) $f->id ); ?>>
-                        <?php echo esc_html( ( $f->form_name ?: 'Formulier #' . $f->id ) . ' (' . (int) $f->cnt . ')' ); ?>
+                    <option value="<?php echo esc_attr( $f->key ); ?>" <?php selected( $form_id, $f->key ); ?>>
+                        <?php
+                        $label = $f->form_name ?: $f->key;
+                        // Bronnaam erbij zodra er meer dan één formulierplugin draait,
+                        // anders is "Contact" uit twee plugins niet uit elkaar te houden.
+                        if ( count( dp_toolbox_submissions_bronnen() ) > 1 ) {
+                            $label .= ' — ' . $f->bron;
+                        }
+                        echo esc_html( $label . ' (' . (int) $f->cnt . ')' );
+                        ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -507,16 +802,16 @@ function dp_toolbox_submissions_render_list() {
                 </thead>
                 <tbody>
                     <?php foreach ( $rows as $r ) :
-                        $m              = $meta[ $r->id ] ?? [];
-                        list( $name, $email ) = dp_toolbox_submissions_summary( $r->form_id, $m );
+                        $m              = $meta[ $r->key ] ?? [];
+                        list( $name, $email ) = dp_toolbox_submissions_summary( $r->form_key, $m );
                         $display        = $name ?: $email ?: 'Anoniem';
-                        $view_url       = add_query_arg( [ 'page' => 'dp-submissions', 'entry' => $r->id ], admin_url( 'admin.php' ) );
+                        $view_url       = add_query_arg( [ 'page' => 'dp-submissions', 'entry' => $r->key ], admin_url( 'admin.php' ) );
                         $delete_url     = wp_nonce_url(
                             add_query_arg(
-                                [ 'action' => 'dp_toolbox_submissions_delete', 'entry' => $r->id ],
+                                [ 'action' => 'dp_toolbox_submissions_delete', 'entry' => $r->key ],
                                 admin_url( 'admin-post.php' )
                             ),
-                            'dp_submissions_delete_' . $r->id
+                            'dp_submissions_delete_' . $r->key
                         );
                     ?>
                         <tr>
@@ -531,7 +826,7 @@ function dp_toolbox_submissions_render_list() {
                                     </span>
                                 </a>
                             </td>
-                            <td><?php echo esc_html( $r->form_name ?: 'Formulier #' . $r->form_id ); ?></td>
+                            <td><?php echo esc_html( $r->form_name ?: $r->form_key ); ?></td>
                             <td>
                                 <?php echo esc_html( date_i18n( 'j M Y, H:i', strtotime( $r->created_at ) ) ); ?>
                                 <span class="dp-subs-ago"><?php echo esc_html( human_time_diff( strtotime( $r->created_at ), current_time( 'timestamp' ) ) ); ?> geleden</span>
@@ -585,9 +880,9 @@ function dp_toolbox_submissions_render_detail( $entry_id ) {
         return;
     }
 
-    $fields = dp_toolbox_submissions_get_fields( $entry->form_id );
+    $fields = dp_toolbox_submissions_get_fields( $entry->form_key );
     $meta   = dp_toolbox_submissions_meta_for( [ $entry_id ] )[ $entry_id ] ?? [];
-    list( $name, $email ) = dp_toolbox_submissions_summary( $entry->form_id, $meta );
+    list( $name, $email ) = dp_toolbox_submissions_summary( $entry->form_key, $meta );
     $display = $name ?: $email ?: 'Anoniem';
 
     $back_url   = add_query_arg( [ 'page' => 'dp-submissions' ], admin_url( 'admin.php' ) );
@@ -595,7 +890,15 @@ function dp_toolbox_submissions_render_detail( $entry_id ) {
         add_query_arg( [ 'action' => 'dp_toolbox_submissions_delete', 'entry' => $entry_id ], admin_url( 'admin-post.php' ) ),
         'dp_submissions_delete_' . $entry_id
     );
-    $bitform_url = admin_url( 'admin.php?page=bitform#/' . (int) $entry->form_id );
+    // Link terug naar de bewerkpagina van het formulier in de plugin zelf.
+    list( $bron_slug, $bron_form_id ) = dp_toolbox_submissions_split( $entry->form_key );
+    if ( 'jfb' === $bron_slug ) {
+        $bron_label = 'JetFormBuilder';
+        $bron_url   = get_edit_post_link( $bron_form_id, '' );
+    } else {
+        $bron_label = 'Bit Form';
+        $bron_url   = admin_url( 'admin.php?page=bitform#/' . $bron_form_id );
+    }
     ?>
     <div class="wrap dp-subs dp-subs-detail-wrap">
         <p class="dp-subs-back"><a href="<?php echo esc_url( $back_url ); ?>">&laquo; Terug naar overzicht</a></p>
@@ -604,7 +907,8 @@ function dp_toolbox_submissions_render_detail( $entry_id ) {
             <div>
                 <h1><?php echo esc_html( $display ); ?></h1>
                 <div class="dp-subs-detail-meta">
-                    <span><span class="dashicons dashicons-feedback"></span> <?php echo esc_html( $entry->form_name ?: 'Formulier #' . $entry->form_id ); ?></span>
+                    <span><span class="dashicons dashicons-feedback"></span> <?php echo esc_html( $entry->form_name ?: $entry->form_key ); ?></span>
+                    <span><span class="dashicons dashicons-admin-plugins"></span> <?php echo esc_html( $bron_label ); ?></span>
                     <span><span class="dashicons dashicons-calendar-alt"></span> <?php echo esc_html( date_i18n( 'j M Y, H:i', strtotime( $entry->created_at ) ) ); ?></span>
                     <?php if ( $entry->user_ip ) : ?>
                         <span><span class="dashicons dashicons-admin-site"></span> <?php echo esc_html( dp_toolbox_submissions_format_ip( $entry->user_ip ) ); ?></span>
@@ -615,7 +919,9 @@ function dp_toolbox_submissions_render_detail( $entry_id ) {
                 </div>
             </div>
             <div class="dp-subs-detail-actions">
-                <a href="<?php echo esc_url( $bitform_url ); ?>" class="button">Open in Bit Form</a>
+                <?php if ( $bron_url ) : ?>
+                    <a href="<?php echo esc_url( $bron_url ); ?>" class="button">Open in <?php echo esc_html( $bron_label ); ?></a>
+                <?php endif; ?>
                 <a href="<?php echo esc_url( $delete_url ); ?>" class="button dp-subs-del"
                    onclick="return confirm('Deze inzending definitief verwijderen?');">Verwijder</a>
             </div>
