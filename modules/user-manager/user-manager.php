@@ -2,6 +2,7 @@
 /**
  * Module Name: User Manager
  * Description: Verberg menu-items en plugins per individuele administrator.
+ * Category: users
  * Version: 1.0.0
  */
 

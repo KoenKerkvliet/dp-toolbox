@@ -2,6 +2,7 @@
 /**
  * Module Name: Attribute Pricing
  * Description: Voegt een "Extra options" tab toe aan simpele WooCommerce-producten. Per attribuut-waarde een meerprijs zonder dat je variaties hoeft op te tuigen.
+ * Category: woocommerce
  * Version: 1.0.0
  */
 

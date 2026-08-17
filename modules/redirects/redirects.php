@@ -2,6 +2,7 @@
 /**
  * Module Name: Redirects
  * Description: Beheer 301/302 redirects vanuit WordPress — zonder extra plugin.
+ * Category: content
  * Version: 1.1.0
  */
 

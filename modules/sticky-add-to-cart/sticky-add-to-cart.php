@@ -2,6 +2,7 @@
 /**
  * Module Name: Sticky Add to Cart
  * Description: Op mobiel: zodra de gebruiker voorbij de add-to-cart knop scrollt verschijnt onderaan een vaste bar met productafbeelding, naam, prijs en een Toevoegen-knop. Tap-to-add — submit van de bestaande product-form (inclusief eventuele attribute-selecties).
+ * Category: woocommerce
  * Version: 1.0.0
  */
 

@@ -2,6 +2,7 @@
 /**
  * Module Name: Unused Media Finder
  * Description: Vindt afbeeldingen in de mediabibliotheek die nergens op de site gebruikt worden.
+ * Category: media
  * Version: 1.0.0
  */
 

@@ -2,6 +2,7 @@
 /**
  * Module Name: Custom Login URL
  * Description: Verplaats de WordPress login-pagina naar een eigen URL en blokkeer wp-login.php.
+ * Category: security
  * Version: 1.0.0
  */
 

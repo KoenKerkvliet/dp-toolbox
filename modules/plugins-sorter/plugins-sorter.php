@@ -2,6 +2,7 @@
 /**
  * Module Name: Plugins Sorter
  * Description: Plaatst inactieve plugins onderaan in de pluginlijst.
+ * Category: ordering
  * Version: 1.1.0
  */
 

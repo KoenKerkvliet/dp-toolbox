@@ -2,6 +2,7 @@
 /**
  * Module Name: SMTP Mailer
  * Description: Configureer een SMTP-server voor betrouwbare e-mailverzending vanuit WordPress.
+ * Category: tools
  * Version: 1.2.0
  */
 

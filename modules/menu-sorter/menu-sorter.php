@@ -2,6 +2,7 @@
 /**
  * Module Name: Menu Sorter
  * Description: Pas de volgorde van items in de admin-sidebar aan via drag & drop.
+ * Category: ordering
  * Version: 1.0.0
  */
 

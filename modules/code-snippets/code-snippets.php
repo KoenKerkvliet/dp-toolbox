@@ -2,6 +2,7 @@
 /**
  * Module Name: Code Snippets
  * Description: Voer eigen PHP-, JS- of CSS-snippets uit. Snippets worden via de admin-pagina aangemaakt en opgeslagen in de database. Daarnaast worden PHP-bestanden uit de snippets/ map ingeladen voor versie-beheerde, plugin-bundled snippets.
+ * Category: tools
  * Version: 2.0.0
  */
 

@@ -2,6 +2,7 @@
 /**
  * Module Name: Maintenance Mode
  * Description: Toon een onderhoudspagina aan bezoekers terwijl je aan de site werkt.
+ * Category: security
  * Version: 1.0.0
  */
 

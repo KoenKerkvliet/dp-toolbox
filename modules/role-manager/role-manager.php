@@ -2,6 +2,7 @@
 /**
  * Module Name: Role Manager
  * Description: Maak custom rollen aan en verberg menu-items en plugins per gebruikersrol.
+ * Category: users
  * Version: 1.1.0
  */
 

@@ -294,56 +294,34 @@ function dp_toolbox_render_modules_tab() {
     $notices      = dp_toolbox_get_module_notices();
     $requirements = dp_toolbox_get_module_requirements();
 
+    /*
+     * De categorie staat in de module-header ("Category: media"), niet in een
+     * lijst hier. Zo kan hij niet vergeten worden bij het toevoegen van een
+     * module — dat gebeurde eerder wél, en zulke modules verdwenen dan stil in
+     * de grootste categorie.
+     */
     $categories = [
-        'dashboard'   => [ 'label' => 'Dashboard',          'icon' => 'dashicons-dashboard' ],
-        'admin'       => [ 'label' => 'Admin & Navigatie',   'icon' => 'dashicons-admin-generic' ],
-        'security'    => [ 'label' => 'Beveiliging',         'icon' => 'dashicons-shield' ],
-        'email'       => [ 'label' => 'E-mail',              'icon' => 'dashicons-email-alt' ],
+        'dashboard'   => [ 'label' => 'Dashboard',           'icon' => 'dashicons-dashboard' ],
+        'admin'       => [ 'label' => 'Admin',               'icon' => 'dashicons-admin-generic' ],
+        'appearance'  => [ 'label' => 'Uiterlijk',           'icon' => 'dashicons-art' ],
+        'users'       => [ 'label' => 'Gebruikers',          'icon' => 'dashicons-groups' ],
+        'ordering'    => [ 'label' => 'Ordenen',             'icon' => 'dashicons-sort' ],
+        'content'     => [ 'label' => 'Content & SEO',       'icon' => 'dashicons-media-text' ],
         'media'       => [ 'label' => 'Media',               'icon' => 'dashicons-admin-media' ],
+        'security'    => [ 'label' => 'Beveiliging',         'icon' => 'dashicons-shield' ],
         'tools'       => [ 'label' => 'Tools',               'icon' => 'dashicons-admin-tools' ],
         'woocommerce' => [ 'label' => 'WooCommerce',         'icon' => 'dashicons-cart' ],
-    ];
-
-    $module_categories = [
-        'activity-log'      => 'dashboard',
-        'quick-setup'       => 'dashboard',
-        'dashboard-widgets' => 'dashboard',
-        'site-navigator'    => 'admin',
-        'role-manager'      => 'admin',
-        'user-manager'      => 'admin',
-        'menu-sorter'       => 'admin',
-        'page-sorter'       => 'admin',
-        'plugins-sorter'    => 'admin',
-        'branding'          => 'admin',
-        'disable-features'  => 'admin',
-        'duplicate-post'    => 'admin',
-        'security-headers'   => 'security',
-        'custom-login-url'   => 'security',
-        'login-branding'     => 'security',
-        'maintenance-mode'   => 'security',
-        'redirects'          => 'security',
-        'revision-limiter'   => 'security',
-        'smtp'                => 'email',
-        'alt-text-filler'     => 'media',
-        'media-categories'   => 'media',
-        'media-replacement'  => 'media',
-        'unused-media'       => 'media',
-        'webp-converter'     => 'media',
-        'etch-gsap'            => 'tools',
-        'file-manager'         => 'tools',
-        'search-replace'       => 'tools',
-        'plugin-installer'     => 'tools',
-        'submissions'          => 'tools',
-        'thumbnails-manager'   => 'media',
-        'attribute-pricing'    => 'woocommerce',
-        'free-shipping-bar'    => 'woocommerce',
-        'low-stock-urgency'    => 'woocommerce',
-        'sticky-add-to-cart'   => 'woocommerce',
+        'other'       => [ 'label' => 'Overig',              'icon' => 'dashicons-marker' ],
     ];
 
     $grouped = [];
     foreach ( $modules as $slug => $module ) {
-        $cat = $module_categories[ $slug ] ?? 'admin';
+        $cat = $module['category'] ?? '';
+        // Onbekende of ontbrekende categorie belandt zichtbaar in "Overig",
+        // niet stilzwijgend tussen de rest.
+        if ( ! isset( $categories[ $cat ] ) ) {
+            $cat = 'other';
+        }
         $grouped[ $cat ][ $slug ] = $module;
     }
     foreach ( $grouped as &$group ) {
@@ -540,6 +518,28 @@ function dp_toolbox_render_modules_tab() {
         .dp-inline-panel .dp-page-header,
         .dp-inline-panel .dp-page-content { background: transparent; padding: 0; border: none; border-radius: 0; }
         .dp-inline-panel .dp-page-header { display: none; }
+
+        /* --- Zoeken --- */
+        .dp-module-search { position: relative; padding: 12px; border-bottom: 1px solid #e0e0e0; }
+        .dp-module-search .dashicons {
+            position: absolute; left: 21px; top: 50%; transform: translateY(-50%);
+            color: #8c8f94; font-size: 17px; width: 17px; height: 17px; pointer-events: none;
+        }
+        .dp-module-search input {
+            width: 100%; padding: 6px 8px 6px 30px; border: 1px solid #dcdcde; border-radius: 4px;
+            font-size: 13px; line-height: 1.5; box-shadow: none;
+        }
+        .dp-module-search input:focus { border-color: #2271b1; box-shadow: 0 0 0 1px #2271b1; outline: none; }
+
+        /* Tijdens het zoeken tonen we alle categorieën onder elkaar, met een
+           kopje per categorie, zodat je meteen ziet waar een module thuishoort. */
+        .dp-modules-main.is-searching .dp-cat-panel { display: block; }
+        .dp-modules-main.is-searching .dp-cat-panel.is-empty { display: none; }
+        .dp-modules-main.is-searching .dp-module-card.is-hidden { display: none; }
+        .dp-search-empty {
+            display: none; padding: 40px 24px; text-align: center; color: #646970; font-size: 14px;
+        }
+        .dp-modules-main.is-searching.has-no-results .dp-search-empty { display: block; }
     </style>
 
     <form id="dp-modules-form" method="post" action="options.php">
@@ -548,6 +548,11 @@ function dp_toolbox_render_modules_tab() {
         <div class="dp-modules-layout">
             <!-- Sidebar -->
             <div class="dp-modules-sidebar">
+                <div class="dp-module-search">
+                    <span class="dashicons dashicons-search"></span>
+                    <input type="search" id="dp-module-search" placeholder="Zoek een module&hellip;"
+                           autocomplete="off" aria-label="Zoek een module">
+                </div>
                 <nav class="dp-sidebar-nav">
                     <?php foreach ( $categories as $cat_key => $cat ) :
                         if ( empty( $grouped[ $cat_key ] ) ) continue;
@@ -583,7 +588,8 @@ function dp_toolbox_render_modules_tab() {
                                 $req        = $requirements[ $slug ] ?? null;
                                 $blocked    = $req && empty( $req['met'] );
                             ?>
-                                <div class="dp-module-card <?php echo $is_active ? 'is-active' : 'is-inactive'; ?><?php echo $blocked ? ' is-blocked' : ''; ?>">
+                                <div class="dp-module-card <?php echo $is_active ? 'is-active' : 'is-inactive'; ?><?php echo $blocked ? ' is-blocked' : ''; ?>"
+                                     data-zoek="<?php echo esc_attr( strtolower( $module['name'] . ' ' . $module['description'] . ' ' . $slug ) ); ?>">
                                     <div class="dp-toggle">
                                         <input type="checkbox"
                                                id="dp-module-<?php echo esc_attr( $slug ); ?>"
@@ -629,6 +635,7 @@ function dp_toolbox_render_modules_tab() {
                         </div>
                     </div>
                 <?php endforeach; ?>
+                <p class="dp-search-empty">Geen module gevonden. Probeer een ander zoekwoord.</p>
             </div>
         </div>
     </form>
@@ -686,6 +693,59 @@ function dp_toolbox_render_modules_tab() {
                 history.replaceState(null, '', openSlug ? '#settings-' + openSlug : this.getAttribute('href'));
             });
         });
+
+        /* --- Zoeken over alle categorieën heen --- */
+        var zoekveld = document.getElementById('dp-module-search');
+        var main     = document.querySelector('.dp-modules-main');
+        var kaarten  = document.querySelectorAll('.dp-module-card');
+
+        function zoek(term) {
+            term = (term || '').trim().toLowerCase();
+
+            if (!term) {
+                // Terug naar normaal: alles zichtbaar, actieve categorie herstellen.
+                main.classList.remove('is-searching', 'has-no-results');
+                kaarten.forEach(function(k) { k.classList.remove('is-hidden'); });
+                panels.forEach(function(p) { p.classList.remove('is-empty'); });
+                var actief = document.querySelector('.dp-sidebar-item.is-active');
+                if (actief) activate(actief.dataset.cat);
+                return;
+            }
+
+            main.classList.add('is-searching');
+            var totaal = 0;
+
+            panels.forEach(function(panel) {
+                var raak = 0;
+                panel.querySelectorAll('.dp-module-card').forEach(function(kaart) {
+                    var match = (kaart.dataset.zoek || '').indexOf(term) !== -1;
+                    kaart.classList.toggle('is-hidden', !match);
+                    if (match) raak++;
+                });
+                panel.classList.toggle('is-empty', raak === 0);
+                totaal += raak;
+            });
+
+            main.classList.toggle('has-no-results', totaal === 0);
+        }
+
+        if (zoekveld) {
+            zoekveld.addEventListener('input', function() { zoek(this.value); });
+            zoekveld.addEventListener('keydown', function(e) {
+                // Escape wist het veld en zet de weergave terug.
+                if (e.key === 'Escape') { this.value = ''; zoek(''); return; }
+                // Enter zou anders het omliggende formulier opslaan — dit veld
+                // filtert alleen, het hoort niets te verzenden.
+                if (e.key === 'Enter') { e.preventDefault(); }
+            });
+            // Een categorie aanklikken tijdens het zoeken wist de zoekterm,
+            // anders klik je op iets dat niets lijkt te doen.
+            items.forEach(function(item) {
+                item.addEventListener('click', function() {
+                    if (zoekveld.value) { zoekveld.value = ''; zoek(''); }
+                });
+            });
+        }
 
         /* --- Inline settings panels --- */
         var inlineWrap   = document.getElementById('dp-inline-settings-wrap');

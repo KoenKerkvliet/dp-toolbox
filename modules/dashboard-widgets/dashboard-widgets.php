@@ -2,6 +2,7 @@
 /**
  * Module Name: Dashboard Widgets
  * Description: Aangepaste dashboard-widgets en opruimen van standaard WordPress-widgets.
+ * Category: dashboard
  * Version: 1.5.0
  */
 

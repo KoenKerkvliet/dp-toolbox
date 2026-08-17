@@ -2,6 +2,7 @@
 /**
  * Module Name: Search & Replace
  * Description: Zoek en vervang tekst in de WordPress database — serialization-aware en met dry-run.
+ * Category: tools
  * Version: 1.0.0
  */
 

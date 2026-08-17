@@ -2,6 +2,7 @@
 /**
  * Module Name: File Manager
  * Description: Beheer bestanden op de server vanuit WordPress — bekijken, bewerken, uploaden en ZIPs uitpakken.
+ * Category: tools
  * Version: 1.1.0
  */
 

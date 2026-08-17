@@ -2,6 +2,7 @@
 /**
  * Module Name: Duplicate Post
  * Description: Voegt een "Dupliceer" link toe aan pagina's en berichten in het overzicht.
+ * Category: admin
  * Version: 1.0.0
  */
 

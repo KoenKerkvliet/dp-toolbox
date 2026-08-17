@@ -2,6 +2,7 @@
 /**
  * Module Name: Mediacategorieën
  * Description: Organiseer mediabestanden met categorieën — filter in lijst- en rasterweergave.
+ * Category: media
  * Version: 1.0.0
  */
 

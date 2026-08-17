@@ -2,6 +2,7 @@
 /**
  * Module Name: Gutenberg Toggle
  * Description: Schakel de Gutenberg block-editor per post-type uit. Geselecteerde types vallen terug op de Classic Editor.
+ * Category: admin
  * Version: 1.0.0
  */
 

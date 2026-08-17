@@ -2,6 +2,7 @@
 /**
  * Module Name: Site Navigator
  * Description: Voegt een snelnavigatiemenu toe aan de admin bar voor Bricks Builder.
+ * Category: admin
  * Version: 1.1.0
  */
 

@@ -2,6 +2,7 @@
 /**
  * Module Name: Thumbnails Manager
  * Description: Bekijk, beheer en regenereer WordPress thumbnail-formaten.
+ * Category: media
  * Version: 1.0.0
  */
 

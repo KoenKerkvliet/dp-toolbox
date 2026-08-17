@@ -2,6 +2,7 @@
 /**
  * Module Name: Media Replacement
  * Description: Vervang mediabestanden met behoud van ID, datum en bestandsnaam.
+ * Category: media
  * Version: 1.0.0
  */
 

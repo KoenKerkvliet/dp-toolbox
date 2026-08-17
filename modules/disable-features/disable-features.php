@@ -2,6 +2,7 @@
 /**
  * Module Name: Disable Features
  * Description: Schakel onnodige WordPress-functies uit via een overzichtelijk paneel.
+ * Category: admin
  * Version: 1.1.0
  */
 

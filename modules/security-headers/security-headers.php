@@ -2,6 +2,7 @@
 /**
  * Module Name: Security Headers
  * Description: Voegt belangrijke HTTP-beveiligingsheaders toe aan alle responses.
+ * Category: security
  * Version: 1.0.0
  */
 

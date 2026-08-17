@@ -2,6 +2,7 @@
 /**
  * Module Name: Activity Log
  * Description: Houd bij wie wat doet op de site — logins, content, gebruikers, plugins en instellingen.
+ * Category: dashboard
  * Version: 1.0.0
  */
 

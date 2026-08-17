@@ -2,6 +2,7 @@
 /**
  * Module Name: WebP Converter
  * Description: Converteert afbeeldingen automatisch naar WebP, met bulk-conversie en cleanup.
+ * Category: media
  * Version: 1.0.1
  */
 

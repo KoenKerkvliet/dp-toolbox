@@ -2,6 +2,7 @@
 /**
  * Module Name: Inzendingen
  * Description: Volledig overzicht van alle Bit Form-inzendingen — filteren per formulier, zoeken, detailweergave, CSV-export en verwijderen. Voegt een eigen 'Inzendingen'-menu toe.
+ * Category: content
  * Version: 1.0.0
  */
 

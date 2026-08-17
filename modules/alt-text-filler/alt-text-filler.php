@@ -2,6 +2,7 @@
 /**
  * Module Name: Alt Text Filler
  * Description: Vindt afbeeldingen zonder alt-tekst en genereert suggesties op basis van de bestandsnaam.
+ * Category: media
  * Version: 1.0.0
  */
 

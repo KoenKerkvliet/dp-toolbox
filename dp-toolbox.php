@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DP Toolbox
  * Description: Design Pixels gereedschapskist — modulaire verzameling van site-tools.
- * Version: 2.32.0
+ * Version: 2.33.0
  * Author: Design Pixels
  * Text Domain: dp-toolbox
  * GitHub Plugin URI: KoenKerkvliet/dp-toolbox
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DP_TOOLBOX_VERSION', '2.32.0' );
+define( 'DP_TOOLBOX_VERSION', '2.33.0' );
 define( 'DP_TOOLBOX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DP_TOOLBOX_URL', plugin_dir_url( __FILE__ ) );
 
@@ -58,6 +58,7 @@ function dp_toolbox_get_module_info( $module_file ) {
         'name'        => 'Module Name',
         'description' => 'Description',
         'version'     => 'Version',
+        'category'    => 'Category',
     ];
     return get_file_data( $module_file, $headers );
 }
@@ -89,6 +90,7 @@ function dp_toolbox_get_available_modules() {
             'name'        => $info['name'] ?: $slug,
             'description' => $info['description'] ?: '',
             'version'     => $info['version'] ?: '',
+            'category'    => $info['category'] ?: '',
         ];
     }
 

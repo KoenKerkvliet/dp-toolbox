@@ -2,6 +2,7 @@
 /**
  * Module Name: Login Branding
  * Description: Past de WordPress-loginpagina aan met Design Pixels huisstijl.
+ * Category: appearance
  * Version: 1.0.0
  */
 

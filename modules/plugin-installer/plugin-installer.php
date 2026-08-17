@@ -2,6 +2,7 @@
 /**
  * Module Name: Plugin Installer
  * Description: Installeer aanbevolen plugins van wordpress.org, activeer in een aparte stap.
+ * Category: tools
  * Version: 1.1.0
  */
 

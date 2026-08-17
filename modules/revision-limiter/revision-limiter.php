@@ -2,6 +2,7 @@
 /**
  * Module Name: Revision Limiter
  * Description: Beperk het aantal revisies per bericht om de database schoon te houden.
+ * Category: security
  * Version: 1.0.0
  */
 

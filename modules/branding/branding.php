@@ -2,6 +2,7 @@
 /**
  * Module Name: Branding
  * Description: Geef de admin-sidebar iconen een eigen merkkleur.
+ * Category: appearance
  * Version: 1.0.0
  */
 

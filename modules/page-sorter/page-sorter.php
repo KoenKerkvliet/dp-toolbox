@@ -2,6 +2,7 @@
 /**
  * Module Name: Page Sorter
  * Description: Sorteer pagina's via drag & drop in het paginaoverzicht.
+ * Category: ordering
  * Version: 1.0.0
  */
 

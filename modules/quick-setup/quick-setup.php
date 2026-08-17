@@ -2,6 +2,7 @@
 /**
  * Module Name: Quick Setup
  * Description: Configureer een nieuwe WordPress-installatie met één klik — taal, tijdzone, datum en meer.
+ * Category: dashboard
  * Version: 1.0.0
  */
 
