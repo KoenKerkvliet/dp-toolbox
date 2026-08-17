@@ -2,7 +2,7 @@
 /**
  * Module Name: SMTP Mailer
  * Description: Configureer een SMTP-server voor betrouwbare e-mailverzending vanuit WordPress.
- * Version: 1.1.0
+ * Version: 1.2.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -162,6 +162,34 @@ add_filter( 'wp_mail_from', function ( $email ) {
 } );
 
 add_filter( 'wp_mail_from_name', function ( $name ) {
+    $smtp = dp_toolbox_smtp_get_settings();
+    return ! empty( $smtp['from_name'] ) ? $smtp['from_name'] : $name;
+} );
+
+/* ------------------------------------------------------------------ */
+/*  JetFormBuilder: afzender gelijktrekken                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * JetFormBuilder bouwt zijn e-mails met een expliciete From-header
+ * ("From: naam <adres>"), standaard noreply@<sitehost>. Zo'n header wint van
+ * de wp_mail_from-filter hierboven. Bij een mailprovider die alleen
+ * geverifieerde domeinen accepteert — emailit doet dat — wordt die mail
+ * geweigerd.
+ *
+ * Het gemene eraan is dat het half lijkt te werken: de bevestiging naar de
+ * bezoeker komt vaak wél aan (Gmail is mild), terwijl de melding naar de
+ * site-eigenaar stil verdwijnt. Deze twee filters trekken het weer gelijk.
+ *
+ * De filternamen bestaan alleen binnen JetFormBuilder; op sites zonder die
+ * plugin vuren ze nooit.
+ */
+add_filter( 'jet-form-builder/send-email/from-address', function ( $email ) {
+    $smtp = dp_toolbox_smtp_get_settings();
+    return ! empty( $smtp['from_email'] ) ? $smtp['from_email'] : $email;
+} );
+
+add_filter( 'jet-form-builder/send-email/from-name', function ( $name ) {
     $smtp = dp_toolbox_smtp_get_settings();
     return ! empty( $smtp['from_name'] ) ? $smtp['from_name'] : $name;
 } );
