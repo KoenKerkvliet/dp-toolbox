@@ -71,23 +71,50 @@ function dpx_klant_avatars_shortcode( $atts ) {
 
 	$totaal = (int) wp_count_posts( 'klanten' )->publish;
 
-	$klanten = get_posts(
+	$logos = ( 'logos' === $atts['type'] );
+
+	/*
+	 * Ruimer ophalen dan nodig, want bij initialen slaan we dubbele letters over.
+	 * Met de huidige klantenlijst zou de eerste drie anders "A A B" opleveren —
+	 * twee identieke rondjes naast elkaar oogt als een fout, niet als een keuze.
+	 */
+	$kandidaten = get_posts(
 		array(
 			'post_type'        => 'klanten',
 			'post_status'      => 'publish',
-			'numberposts'      => $aantal,
+			'numberposts'      => $logos ? $aantal : 30,
 			'orderby'          => sanitize_text_field( $atts['orderby'] ),
 			'order'            => 'DESC' === strtoupper( $atts['order'] ) ? 'DESC' : 'ASC',
 			'suppress_filters' => false,
 		)
 	);
 
+	if ( ! $kandidaten ) {
+		return '';
+	}
+
+	$klanten = array();
+	$gezien  = array();
+
+	foreach ( $kandidaten as $kandidaat ) {
+		if ( ! $logos ) {
+			$initiaal = dpx_klant_initiaal( $kandidaat->post_title );
+			if ( '' === $initiaal || isset( $gezien[ $initiaal ] ) ) {
+				continue;
+			}
+			$gezien[ $initiaal ] = true;
+		}
+		$klanten[] = $kandidaat;
+		if ( count( $klanten ) >= $aantal ) {
+			break;
+		}
+	}
+
 	if ( ! $klanten ) {
 		return '';
 	}
 
-	$logos = ( 'logos' === $atts['type'] );
-	$html  = '';
+	$html = '';
 
 	foreach ( $klanten as $klant ) {
 		$naam = $klant->post_title;
@@ -104,7 +131,10 @@ function dpx_klant_avatars_shortcode( $atts ) {
 			. '</span>';
 	}
 
-	// Resterend aantal, zodat het plusje meegroeit met je klantenbestand.
+	/*
+	 * Het plusje telt door op het échte aantal klanten, niet op wat er na het
+	 * ontdubbelen overbleef — anders klopt "+6" niet meer met je portfolio.
+	 */
 	$rest = $totaal - count( $klanten );
 	if ( $rest > 0 ) {
 		$html .= '<span class="hm-avatars__item hm-avatars__item--rest">+' . (int) $rest . '</span>';
