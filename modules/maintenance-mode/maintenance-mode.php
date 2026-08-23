@@ -3,12 +3,68 @@
  * Module Name: Maintenance Mode
  * Description: Toon een onderhoudspagina aan bezoekers terwijl je aan de site werkt.
  * Category: security
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+
+/**
+ * Leeg de paginacache van elke cacheplugin die we kennen.
+ *
+ * Zonder dit doet de onderhoudsmodus ogenschijnlijk niets: een cacheplugin
+ * serveert de HTML die vóór het inschakelen is opgeslagen, en dan draait PHP
+ * niet eens — de hook hieronder komt dus nooit aan de beurt.
+ */
+function dp_toolbox_mm_purge_caches() {
+    // LiteSpeed Cache
+    do_action( 'litespeed_purge_all' );
+
+    // Cache Enabler
+    do_action( 'cache_enabler_clear_complete_cache' );
+
+    // WP Rocket
+    if ( function_exists( 'rocket_clean_domain' ) ) {
+        rocket_clean_domain();
+    }
+
+    // W3 Total Cache
+    if ( function_exists( 'w3tc_flush_all' ) ) {
+        w3tc_flush_all();
+    }
+
+    // WP Super Cache
+    if ( function_exists( 'wp_cache_clear_cache' ) ) {
+        wp_cache_clear_cache();
+    }
+
+    // SiteGround Optimizer
+    if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
+        sg_cachepress_purge_cache();
+    }
+
+    /**
+     * Voor hosting- of CDN-caches die hier niet in staan.
+     */
+    do_action( 'dp_toolbox_mm_purge_caches' );
+}
+
+/* Cache legen zodra de schakelaar omgaat — in beide richtingen. */
+add_action( 'update_option_dp_toolbox_maintenance_enabled', 'dp_toolbox_mm_purge_caches', 10, 0 );
+add_action( 'add_option_dp_toolbox_maintenance_enabled', 'dp_toolbox_mm_purge_caches', 10, 0 );
+
+/*
+ * Opslaan zonder de schakelaar te verzetten slaat update_option() over, en
+ * daarmee ook de purge hierboven. Juist dán wil je kunnen legen: als de cache
+ * is blijven hangen, is nogmaals opslaan de eerste reflex.
+ */
+add_filter( 'pre_update_option_dp_toolbox_maintenance_enabled', function ( $value, $old_value ) {
+    if ( maybe_serialize( $value ) === maybe_serialize( $old_value ) ) {
+        dp_toolbox_mm_purge_caches();
+    }
+    return $value;
+}, 10, 2 );
 
 add_action( 'template_redirect', function () {
     if ( ! get_option( 'dp_toolbox_maintenance_enabled', false ) ) {
@@ -17,16 +73,26 @@ add_action( 'template_redirect', function () {
     if ( is_user_logged_in() && current_user_can( 'edit_posts' ) ) {
         return;
     }
-    if ( is_admin() || $GLOBALS['pagenow'] === 'wp-login.php' ) {
+    if ( is_admin() || ( $GLOBALS['pagenow'] ?? '' ) === 'wp-login.php' ) {
         return;
     }
-    if ( defined( 'DOING_AJAX' ) || defined( 'REST_REQUEST' ) ) {
+    if ( ( defined( 'DOING_AJAX' ) && DOING_AJAX ) || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
         return;
     }
+
+    /*
+     * Deze pagina mag nooit de cache in. Anders blijft de onderhoudspagina
+     * hangen nadat je de modus weer uitzet.
+     */
+    if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+        define( 'DONOTCACHEPAGE', true );
+    }
+    do_action( 'litespeed_control_set_nocache', 'DP Toolbox onderhoudsmodus' );
 
     $site_name = get_bloginfo( 'name' );
     $logo_url  = DP_TOOLBOX_URL . 'assets/dp-logo.webp';
 
+    nocache_headers();
     header( 'HTTP/1.1 503 Service Temporarily Unavailable' );
     header( 'Retry-After: 3600' );
     ?>
