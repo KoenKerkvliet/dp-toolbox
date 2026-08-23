@@ -3,7 +3,7 @@
  * Module Name: Magic Login
  * Description: Laat leden inloggen via een eenmalige link per e-mail, zonder wachtwoord. Beheerders blijven op wachtwoord.
  * Category: security
- * Version: 1.2.0
+ * Version: 1.2.1
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -576,13 +576,13 @@ function dp_toolbox_ml_styles() {
     }
     .dp-ml-input:focus { outline: none; border-color: ' . $accent . '; box-shadow: 0 0 0 2px rgba(0,0,0,0.10); }
     .dp-ml-btn {
-        display: block; width: 100%; padding: 11px 16px; font-size: 14px; font-weight: 600;
+        display: block; width: 100%; padding: 13px 16px; margin-top: 6px; font-size: 14px; font-weight: 600;
         color: #fff; background: ' . $accent . '; border: none; border-radius: 6px; cursor: pointer;
         transition: background .2s; line-height: 1.4;
     }
     .dp-ml-btn:hover { background: ' . $hover . '; }
     .dp-ml-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
-    .dp-ml-notice { margin: 0 0 12px; padding: 10px 12px; border-radius: 6px; font-size: 13px; line-height: 1.5; }
+    .dp-ml-notice { margin: 0 0 14px; padding: 12px 14px 12px 17px; border-radius: 6px; font-size: 13px; line-height: 1.55; }
     .dp-ml-notice--ok { background: #f1f6f2; border-left: 3px solid #00a32a; color: #1d2327; }
     .dp-ml-notice--warn { background: #fcf9e8; border-left: 3px solid #dba617; color: #1d2327; }
     .dp-ml-lead { margin: 0 0 16px; font-size: 16px; color: #1d2327; }
