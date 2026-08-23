@@ -3,7 +3,7 @@
  * Module Name: Magic Login
  * Description: Laat leden inloggen via een eenmalige link per e-mail, zonder wachtwoord. Beheerders blijven op wachtwoord.
  * Category: security
- * Version: 1.1.0
+ * Version: 1.2.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -547,12 +547,13 @@ function dp_toolbox_ml_styles() {
     $hover  = function_exists( 'dp_toolbox_branding_color' ) ? dp_toolbox_branding_color( 'accent_hover' ) : '#4a3a8a';
 
     return '
-    .dp-ml { width: 100%; margin: 16px auto 0; text-align: left; }
+    /* Geen width:100% — dat telt op bij een linkermarge en steekt dan uit. */
+    .dp-ml { margin: 16px auto 0; text-align: left; max-width: 420px; }
     .dp-ml-box { background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); overflow: hidden; }
     .dp-ml-summary {
         list-style: none; cursor: pointer; -webkit-user-select: none; user-select: none;
         display: flex; align-items: center; gap: 8px;
-        padding: 15px 24px; font-size: 14px; font-weight: 600; color: ' . $accent . ';
+        padding: 16px 22px; font-size: 14px; font-weight: 600; color: ' . $accent . ';
     }
     .dp-ml-summary::-webkit-details-marker { display: none; }
     .dp-ml-summary::after {
@@ -560,17 +561,17 @@ function dp_toolbox_ml_styles() {
         border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
         transform: rotate(45deg) translateY(-2px); transition: transform .2s;
     }
-    .dp-ml-box[open] > .dp-ml-summary { padding-bottom: 10px; }
+    .dp-ml-box[open] > .dp-ml-summary { padding-bottom: 12px; }
     .dp-ml-box[open] > .dp-ml-summary::after { transform: rotate(-135deg) translateY(-2px); }
     .dp-ml-summary:focus-visible { outline: 2px solid ' . $accent . '; outline-offset: -2px; }
-    .dp-ml-panel { padding: 0 24px 22px; }
+    .dp-ml-panel { padding: 0 22px 22px; }
     .dp-ml-box--plain .dp-ml-panel { padding-top: 22px; }
     .dp-ml-title { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: #1d2327; }
-    .dp-ml-help { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: #646970; }
+    .dp-ml-help { margin: 0 0 16px; font-size: 13px; line-height: 1.5; color: #646970; }
     .dp-ml-srlabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     .dp-ml-input {
         width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 15px;
-        border: 1px solid #c3c4c7; border-radius: 6px; margin-bottom: 10px;
+        border: 1px solid #c3c4c7; border-radius: 6px; margin-bottom: 12px;
         background: #fff; color: #1d2327; line-height: 1.4;
     }
     .dp-ml-input:focus { outline: none; border-color: ' . $accent . '; box-shadow: 0 0 0 2px rgba(0,0,0,0.10); }
@@ -608,10 +609,38 @@ add_action( 'login_enqueue_scripts', function () {
     if ( ! dp_toolbox_ml_setting( 'show_on_login' ) ) {
         return;
     }
+
+    $accent = function_exists( 'dp_toolbox_branding_color' ) ? dp_toolbox_branding_color( 'accent' ) : '#281E5D';
+
     // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
     echo '<style>' . dp_toolbox_ml_styles() . '
-    #login .dp-ml { margin: 20px 0 0; }
+    #login .dp-ml { margin: 20px 0 0; margin-left: 8px; }
     #login .dp-ml-box { box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+
+    /* WordPress en de Login Branding-module stylen .login form als een eigen
+       witte kaart met padding. Dat treft ook ons formulier, wat een kaart in
+       een kaart oplevert. Hier zetten we dat terug. */
+    #login .dp-ml-form {
+        background: none !important; border: none !important; box-shadow: none !important;
+        padding: 0 !important; margin: 0 !important; overflow: visible !important;
+    }
+    #login .dp-ml-form p { margin: 0; padding: 0; }
+    #login .dp-ml-input { margin-bottom: 12px !important; }
+
+    /* Schakelaar boven het formulier */
+    #login .dp-ml-tabs {
+        display: flex; gap: 4px; padding: 4px; margin: 0 0 14px;
+        background: rgba(255,255,255,0.12); border-radius: 10px;
+    }
+    #login .dp-ml-tab {
+        flex: 1; padding: 9px 10px; border: none; border-radius: 7px; cursor: pointer;
+        font-size: 13px; font-weight: 600; font-family: inherit; line-height: 1.4;
+        color: rgba(255,255,255,0.75); background: none; transition: background .15s, color .15s;
+    }
+    #login .dp-ml-tab:hover { color: #fff; }
+    #login .dp-ml-tab.is-active { background: #fff; color: ' . $accent . '; }
+    #login .dp-ml-tab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    #login .dp-ml-pane .dp-ml-panel { padding: 22px; }
     </style>';
 } );
 
@@ -622,6 +651,7 @@ add_action( 'login_footer', function () {
 
     $redirect = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ) : '';
     $html     = dp_toolbox_ml_form_html( $redirect, true );
+    $geopend  = ! empty( $_GET['dp-ml'] );
     ?>
     <div id="dp-ml-login-block" hidden><?php echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
     <script>
@@ -629,9 +659,69 @@ add_action( 'login_footer', function () {
         var block = document.getElementById('dp-ml-login-block');
         var form  = document.getElementById('loginform');
         if (!block || !form || !form.parentNode) { return; }
-        // Direct onder het inlogformulier, niet helemaal onderaan de pagina.
-        form.parentNode.insertBefore(block, form.nextSibling);
-        block.hidden = false;
+
+        var details = block.querySelector('.dp-ml-box');
+        var panel   = block.querySelector('.dp-ml-panel');
+
+        /* Zonder JS blijft het een uitklapbaar blok onder het formulier. Met JS
+           maken we er een schakelaar van: wachtwoord of inloglink, één van beide. */
+        if (!details || !panel) {
+            form.parentNode.insertBefore(block, form.nextSibling);
+            block.hidden = false;
+            return;
+        }
+
+        var pane = document.createElement('div');
+        pane.className = 'dp-ml dp-ml-pane';
+        var box = document.createElement('div');
+        box.className = 'dp-ml-box';
+        box.appendChild(panel);
+        pane.appendChild(box);
+
+        var tabs = document.createElement('div');
+        tabs.className = 'dp-ml-tabs';
+        tabs.setAttribute('role', 'tablist');
+
+        function maakTab(label, actief) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'dp-ml-tab' + (actief ? ' is-active' : '');
+            b.textContent = label;
+            b.setAttribute('role', 'tab');
+            b.setAttribute('aria-selected', actief ? 'true' : 'false');
+            tabs.appendChild(b);
+            return b;
+        }
+
+        var startOpLink = <?php echo $geopend ? 'true' : 'false'; ?>;
+        var tabWachtwoord = maakTab('Wachtwoord', !startOpLink);
+        var tabLink       = maakTab('Inloglink', startOpLink);
+
+        form.parentNode.insertBefore(tabs, form);
+        form.parentNode.insertBefore(pane, form.nextSibling);
+        block.parentNode.removeChild(block);
+
+        // Uitlijnen met het inlogformulier, dat een eigen marge van WordPress krijgt.
+        var marge = window.getComputedStyle(form).marginLeft;
+        tabs.style.marginLeft = marge;
+        pane.style.marginLeft = marge;
+        pane.style.marginTop  = '0';
+
+        function toon(link) {
+            form.style.display = link ? 'none' : '';
+            pane.style.display = link ? '' : 'none';
+            tabLink.classList.toggle('is-active', link);
+            tabWachtwoord.classList.toggle('is-active', !link);
+            tabLink.setAttribute('aria-selected', link ? 'true' : 'false');
+            tabWachtwoord.setAttribute('aria-selected', link ? 'false' : 'true');
+            var veld = link ? pane.querySelector('.dp-ml-input') : document.getElementById('user_login');
+            if (veld) { try { veld.focus(); } catch (e) {} }
+        }
+
+        tabWachtwoord.addEventListener('click', function () { toon(false); });
+        tabLink.addEventListener('click', function () { toon(true); });
+
+        toon(startOpLink);
     })();
     </script>
     <?php
