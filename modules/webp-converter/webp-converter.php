@@ -3,7 +3,7 @@
  * Module Name: WebP Converter
  * Description: Converteert afbeeldingen automatisch naar WebP, met bulk-conversie en cleanup.
  * Category: media
- * Version: 1.0.1
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -466,6 +466,34 @@ function dp_toolbox_clear_log() {
 }
 
 /* Admin page */
+/* ------------------------------------------------------------------ */
+/*  Conflictmelding                                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * LiteSpeed kan zelf ook naar WebP omzetten. Staat dat aan, dan zijn er twee
+ * partijen met dezelfde bestanden bezig en is niet meer te zeggen welke versie
+ * een bezoeker krijgt. We waarschuwen alleen als die optie daadwerkelijk
+ * aanstaat — LiteSpeed draait op vrijwel elke site, maar meestal zonder
+ * beeldoptimalisatie.
+ */
+add_filter( 'dp_toolbox_module_notices', function ( $notices ) {
+    if ( ! function_exists( 'is_plugin_active' ) ) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    }
+
+    if ( ! is_plugin_active( 'litespeed-cache/litespeed-cache.php' ) ) {
+        return $notices;
+    }
+
+    $webp = get_option( 'litespeed.conf.img_optm-webp' );
+    if ( ! empty( $webp ) && '0' !== (string) $webp ) {
+        $notices['webp-converter'] = 'LiteSpeed zet zelf ook om naar WebP (Afbeeldingsoptimalisatie). Twee omzetters op dezelfde bestanden — zet er één uit.';
+    }
+
+    return $notices;
+} );
+
 if ( is_admin() ) {
     require_once __DIR__ . '/admin-page.php';
 }

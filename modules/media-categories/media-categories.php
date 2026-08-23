@@ -3,7 +3,7 @@
  * Module Name: Mediacategorieën
  * Description: Organiseer mediabestanden met categorieën — filter in lijst- en rasterweergave.
  * Category: media
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -271,4 +271,35 @@ add_action( 'wp_ajax_dp_toolbox_save_media_categories', function () {
     wp_send_json_success( [
         'message' => 'Categorieën opgeslagen.',
     ] );
+} );
+
+/* ------------------------------------------------------------------ */
+/*  Conflictmelding                                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * HappyFiles is de standaard media-werkwijze op deze sites. Draait die ook,
+ * dan krijg je twee mappenstelsels naast elkaar in de mediabibliotheek —
+ * "Map" van HappyFiles en "Mediacategorieën" van ons — met elk hun eigen
+ * taxonomie. Dat is niet stuk, maar het is wel verwarrend: bestanden die je in
+ * de ene indeelt zijn onvindbaar via de andere.
+ */
+add_filter( 'dp_toolbox_module_notices', function ( $notices ) {
+    if ( ! function_exists( 'is_plugin_active' ) ) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    }
+
+    $happyfiles = [
+        'happyfiles-pro/happyfiles-pro.php',
+        'happyfiles/happyfiles.php',
+    ];
+
+    foreach ( $happyfiles as $plugin ) {
+        if ( is_plugin_active( $plugin ) ) {
+            $notices['media-categories'] = 'HappyFiles is actief en doet hetzelfde. Twee mappenstelsels naast elkaar maakt het zoeken lastiger — kies er één.';
+            break;
+        }
+    }
+
+    return $notices;
 } );

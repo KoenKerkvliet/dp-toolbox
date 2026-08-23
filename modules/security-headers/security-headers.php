@@ -3,7 +3,7 @@
  * Module Name: Security Headers
  * Description: Voegt belangrijke HTTP-beveiligingsheaders toe aan alle responses.
  * Category: security
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -45,6 +45,13 @@ function dp_toolbox_sh_get_available_headers() {
             'header'  => 'Strict-Transport-Security',
             'value'   => 'max-age=31536000; includeSubDomains',
         ],
+        'hide_powered_by' => [
+            'label'   => 'X-Powered-By verbergen',
+            'desc'    => 'Verwijdert de header die je exacte PHP-versie prijsgeeft. Werkt alleen als PHP hem zet; voegt je webserver hem toe, dan moet dat daar uit.',
+            'header'  => 'X-Powered-By',
+            'value'   => '',
+            'remove'  => true,
+        ],
         'x_xss_protection' => [
             'label'   => 'X-XSS-Protection',
             'desc'    => 'Activeert de XSS-filter in oudere browsers.',
@@ -68,9 +75,17 @@ add_action( 'send_headers', function () {
     $headers  = dp_toolbox_sh_get_available_headers();
 
     foreach ( $enabled as $key ) {
-        if ( isset( $headers[ $key ] ) ) {
-            header( $headers[ $key ]['header'] . ': ' . $headers[ $key ]['value'] );
+        if ( ! isset( $headers[ $key ] ) ) {
+            continue;
         }
+
+        // Sommige regels zetten geen header maar halen er juist één weg.
+        if ( ! empty( $headers[ $key ]['remove'] ) ) {
+            header_remove( $headers[ $key ]['header'] );
+            continue;
+        }
+
+        header( $headers[ $key ]['header'] . ': ' . $headers[ $key ]['value'] );
     }
 } );
 

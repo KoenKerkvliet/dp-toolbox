@@ -3,7 +3,7 @@
  * Module Name: Redirects
  * Description: Beheer 301/302 redirects vanuit WordPress — zonder extra plugin.
  * Category: content
- * Version: 1.1.0
+ * Version: 1.2.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -30,6 +30,20 @@ function dp_toolbox_redirects_get_all() {
  * omdat preg_match dan false teruggeeft matcht die regel gewoon nooit — stil,
  * zonder melding, en dus lastig te vinden.
  */
+/**
+ * Breng een pad op de vorm waarop we regels indexeren én verzoeken opzoeken.
+ *
+ * Dit moet aan beide kanten hetzelfde gebeuren. Ging het eerder mis bij de
+ * homepage: een regel vanaf `/` werd geïndexeerd als lege sleutel (`rtrim`
+ * haalt de enige slash weg) terwijl een verzoek werd opgezocht als `/`. Zo'n
+ * omleiding deed dus niets, zonder enige melding.
+ */
+function dp_toolbox_redirects_pad( $pad ) {
+    $pad = rtrim( (string) $pad, '/' );
+
+    return strtolower( '' === $pad ? '/' : $pad );
+}
+
 function dp_toolbox_redirects_patroon( $van ) {
     return '#^' . str_replace( '#', '\#', $van ) . '$#i';
 }
@@ -44,10 +58,7 @@ add_action( 'template_redirect', function () {
         return;
     }
 
-    $request_path = rtrim( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ), '/' );
-    if ( empty( $request_path ) ) {
-        $request_path = '/';
-    }
+    $request_path = dp_toolbox_redirects_pad( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) );
 
     $gevonden = null;
     $target   = '';
@@ -62,12 +73,11 @@ add_action( 'template_redirect', function () {
         if ( empty( $rule['from'] ) || empty( $rule['to'] ) || empty( $rule['active'] ) || ! empty( $rule['regex'] ) ) {
             continue;
         }
-        $exact[ strtolower( rtrim( $rule['from'], '/' ) ) ] = $id;
+        $exact[ dp_toolbox_redirects_pad( $rule['from'] ) ] = $id;
     }
 
-    $sleutel = strtolower( $request_path );
-    if ( isset( $exact[ $sleutel ] ) ) {
-        $gevonden = $exact[ $sleutel ];
+    if ( isset( $exact[ $request_path ] ) ) {
+        $gevonden = $exact[ $request_path ];
         $target   = $redirects[ $gevonden ]['to'];
     } else {
         // Pas daarna de regex-regels langs.
@@ -86,6 +96,20 @@ add_action( 'template_redirect', function () {
 
     if ( null === $gevonden ) {
         return;
+    }
+
+    /*
+     * Wijst de omleiding naar het adres waar we al zijn? Dan niet omleiden.
+     * Zonder deze controle levert een regel als `/` -> `/` een oneindige lus op,
+     * en dat is precies het soort regel dat je per ongeluk maakt zodra omleiden
+     * vanaf de homepage werkt.
+     */
+    $doel_pad = parse_url( $target, PHP_URL_PATH );
+    if ( null !== $doel_pad && dp_toolbox_redirects_pad( $doel_pad ) === $request_path ) {
+        $doel_host = parse_url( $target, PHP_URL_HOST );
+        if ( ! $doel_host || strtolower( $doel_host ) === strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) ) {
+            return;
+        }
     }
 
     /*

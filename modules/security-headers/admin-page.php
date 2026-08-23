@@ -65,7 +65,9 @@ function dp_toolbox_sh_render_inline() {
                 <div class="dp-sh-info">
                     <h3><?php echo esc_html( $header['label'] ); ?></h3>
                     <p><?php echo esc_html( $header['desc'] ); ?></p>
-                    <code class="dp-sh-value"><?php echo esc_html( $header['value'] ); ?></code>
+                    <code class="dp-sh-value"><?php
+                        echo esc_html( ! empty( $header['remove'] ) ? 'header wordt verwijderd' : $header['value'] );
+                    ?></code>
                 </div>
                 <span class="dp-sh-status <?php echo $is_on ? 'on' : 'off'; ?>">
                     <?php echo $is_on ? 'Actief' : 'Uit'; ?>

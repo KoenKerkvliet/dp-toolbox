@@ -73,10 +73,6 @@ function dp_toolbox_df_get_features() {
                     'label' => 'Updates indicator in admin bar',
                     'desc'  => 'Verbergt het updates-icoon (gebogen pijl met aantal updates) in de admin bar.',
                 ],
-                'admin_bar_iawp_views' => [
-                    'label' => 'Weergaven (Independent Analytics) in admin bar',
-                    'desc'  => 'Verbergt de "X Views" stat van Independent Analytics in de admin bar.',
-                ],
             ],
         ],
         'security' => [
@@ -215,12 +211,6 @@ add_action( 'init', function () {
     if ( dp_toolbox_df_is_disabled( 'admin_bar_updates' ) ) {
         add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
             $wp_admin_bar->remove_node( 'updates' );
-        }, 999 );
-    }
-
-    if ( dp_toolbox_df_is_disabled( 'admin_bar_iawp_views' ) ) {
-        add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
-            $wp_admin_bar->remove_node( 'iawp_admin_bar' );
         }, 999 );
     }
 

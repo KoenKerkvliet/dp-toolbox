@@ -49,9 +49,9 @@ function dp_toolbox_ie_get_categories() {
         ],
         'appearance' => [
             'label' => 'Uiterlijk',
-            'desc'  => 'Admin branding-kleur en site navigator toggles.',
+            'desc'  => 'Site navigator toggles en de branding-keuze (eigen huisstijl of die van de site).',
             'options' => [
-                'dp_toolbox_branding_color',
+                'dp_toolbox_branding_mode',
                 'dp_toolbox_site_nav_show_admin_bar_in_editor',
                 'dp_toolbox_site_nav_show_bricks_settings',
                 'dp_toolbox_site_nav_show_plugin_settings',

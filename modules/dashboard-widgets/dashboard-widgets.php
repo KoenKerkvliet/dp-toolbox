@@ -184,9 +184,11 @@ function dp_toolbox_dashboard_youtube_id( $url ) {
 /* ------------------------------------------------------------------
  *  Analytics-bron detecteren
  *
- *  De widget werkt met twee bronnen: DP Analytics (eigen plugin, voorkeur)
- *  en Independent Analytics (fallback). Beide leveren dezelfde datavorm op
- *  (totals/chart/top_pages/top_refs), zodat de render-code hetzelfde blijft.
+ *  Bron is DP Analytics. Er zat hier ook een tweede pad naar Independent
+ *  Analytics, maar dat is verwijderd: IA staat op geen enkele site meer, en
+ *  wie er nog vanaf moet stappen hoort de historie te importeren met DP
+ *  Analytics' eigen importfunctie in plaats van IA live uit te lezen. Live
+ *  uitlezen verbergt juist dat de migratie nog niet gedaan is.
  * ------------------------------------------------------------------ */
 function dp_toolbox_dashboard_dpa_available() {
     global $wpdb;
@@ -194,18 +196,14 @@ function dp_toolbox_dashboard_dpa_available() {
     return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table;
 }
 
-function dp_toolbox_dashboard_ia_source_available() {
-    global $wpdb;
-    $table = $wpdb->prefix . 'independent_analytics_views';
-    return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table;
-}
-
 /**
- * Is er een analytics-bron beschikbaar? (DP Analytics óf Independent Analytics)
- * De naam is historisch 'ia_available'; hij dekt nu beide bronnen.
+ * Is er een analytics-bron beschikbaar?
+ *
+ * De naam is historisch — hij dekt nu alleen nog DP Analytics. Bewust laten
+ * staan omdat de instellingenpagina hem gebruikt.
  */
 function dp_toolbox_dashboard_ia_available() {
-    return dp_toolbox_dashboard_dpa_available() || dp_toolbox_dashboard_ia_source_available();
+    return dp_toolbox_dashboard_dpa_available();
 }
 
 /* Lege 7-daagse grafiekreeks (dagen zonder data blijven 0). */
@@ -228,8 +226,6 @@ function dp_toolbox_dashboard_get_analytics_data() {
 
     if ( dp_toolbox_dashboard_dpa_available() ) {
         $data = dp_toolbox_dashboard_get_analytics_data_dpa();
-    } elseif ( dp_toolbox_dashboard_ia_source_available() ) {
-        $data = dp_toolbox_dashboard_get_analytics_data_ia();
     } else {
         $data = [
             'totals'    => [ 'views' => 0, 'sessions' => 0, 'visitors' => 0 ],
@@ -292,68 +288,6 @@ function dp_toolbox_dashboard_get_analytics_data_dpa() {
         FROM {$ts}
         WHERE created_at >= %s AND referrer_host != '' AND referrer_type != 'internal'
         GROUP BY referrer_host
-        ORDER BY n DESC
-        LIMIT 5
-    ", $since ), ARRAY_A );
-
-    return [
-        'totals'    => $totals,
-        'chart'     => $chart,
-        'top_pages' => $top_pages,
-        'top_refs'  => $top_refs,
-    ];
-}
-
-/* ------------------------------------------------------------------
- *  Bron: Independent Analytics (fallback)
- * ------------------------------------------------------------------ */
-function dp_toolbox_dashboard_get_analytics_data_ia() {
-    global $wpdb;
-    $since = gmdate( 'Y-m-d H:i:s', strtotime( '-7 days' ) );
-
-    $tv = $wpdb->prefix . 'independent_analytics_views';
-    $ts = $wpdb->prefix . 'independent_analytics_sessions';
-    $tr = $wpdb->prefix . 'independent_analytics_resources';
-    $tf = $wpdb->prefix . 'independent_analytics_referrers';
-
-    $totals = $wpdb->get_row( $wpdb->prepare( "
-        SELECT
-            (SELECT COUNT(*) FROM {$tv} WHERE viewed_at >= %s) AS views,
-            (SELECT COUNT(*) FROM {$ts} WHERE created_at >= %s) AS sessions,
-            (SELECT COUNT(DISTINCT visitor_id) FROM {$ts} WHERE created_at >= %s) AS visitors
-    ", $since, $since, $since ), ARRAY_A );
-
-    $chart_rows = $wpdb->get_results( $wpdb->prepare( "
-        SELECT DATE(viewed_at) AS d, COUNT(*) AS n
-        FROM {$tv}
-        WHERE viewed_at >= %s
-        GROUP BY DATE(viewed_at)
-        ORDER BY d ASC
-    ", $since ), ARRAY_A );
-
-    $chart = dp_toolbox_dashboard_empty_chart();
-    foreach ( $chart_rows as $row ) {
-        if ( isset( $chart[ $row['d'] ] ) ) {
-            $chart[ $row['d'] ] = (int) $row['n'];
-        }
-    }
-
-    $top_pages = $wpdb->get_results( $wpdb->prepare( "
-        SELECT r.cached_title, r.cached_url, COUNT(*) AS n
-        FROM {$tv} v
-        JOIN {$tr} r ON v.resource_id = r.id
-        WHERE v.viewed_at >= %s
-        GROUP BY v.resource_id
-        ORDER BY n DESC
-        LIMIT 5
-    ", $since ), ARRAY_A );
-
-    $top_refs = $wpdb->get_results( $wpdb->prepare( "
-        SELECT r.domain, COUNT(*) AS n
-        FROM {$ts} s
-        JOIN {$tf} r ON s.referrer_id = r.id
-        WHERE s.created_at >= %s AND r.domain != ''
-        GROUP BY r.id
         ORDER BY n DESC
         LIMIT 5
     ", $since ), ARRAY_A );
@@ -451,7 +385,7 @@ function dp_toolbox_dashboard_render_analytics_chart( $data, $opts = [] ) {
 }
 
 /* ------------------------------------------------------------------
- *  Sectie: Analytics (Independent Analytics — laatste 7 dagen)
+ *  Sectie: Analytics (DP Analytics — laatste 7 dagen)
  * ------------------------------------------------------------------ */
 function dp_toolbox_dashboard_section_analytics( $lists_only = false, $show_lists = true ) {
     // Niets te renderen als alleen-lijsten-modus actief is maar lijsten uit staan.

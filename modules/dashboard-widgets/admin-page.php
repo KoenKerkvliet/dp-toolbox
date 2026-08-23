@@ -164,7 +164,7 @@ function dp_toolbox_dashboard_render_inline() {
             <?php
             $widgets = [
                 [ 'id' => 'welkom',     'name' => 'dp_toolbox_dashboard_welkom',     'val' => $welkom,     'title' => 'Welkom',            'desc' => 'Persoonlijke begroeting met berichten- en paginateller.' ],
-                [ 'id' => 'analytics',  'name' => 'dp_toolbox_dashboard_analytics',  'val' => $analytics,  'title' => 'Analytics',         'desc' => 'Bezoekers, pageviews en grafiek van de laatste 7 dagen (via DP Analytics of Independent Analytics).', 'requires_ia' => true ],
+                [ 'id' => 'analytics',  'name' => 'dp_toolbox_dashboard_analytics',  'val' => $analytics,  'title' => 'Analytics',         'desc' => 'Bezoekers, pageviews en grafiek van de laatste 7 dagen (via DP Analytics).', 'requires_ia' => true ],
                 [ 'id' => 'analytics_lists', 'name' => 'dp_toolbox_dashboard_analytics_lists', 'val' => $analytics_lists, 'title' => 'Analytics — top lijsten', 'desc' => 'Toon onderaan ook de top pagina\'s en top referrers van de laatste 7 dagen.', 'requires_analytics' => true ],
                 [ 'id' => 'forms',      'name' => 'dp_toolbox_dashboard_forms',      'val' => $forms,      'title' => 'Inzendingen',       'desc' => 'Recente formulier-inzendingen via Bit Form.' ],
                 [ 'id' => 'converter',  'name' => 'dp_toolbox_dashboard_converter',  'val' => $converter,  'title' => 'Image Converter',   'desc' => 'Promotie voor de gratis tool convert.designpixels.nl.' ],
@@ -187,7 +187,7 @@ function dp_toolbox_dashboard_render_inline() {
                         <?php if ( $needs_ia ) : ?>
                             <div class="dp-dw-hint">
                                 <span class="dashicons dashicons-info"></span>
-                                Activeer eerst een analytics-plugin: <a href="<?php echo esc_url( $pi_url ); ?>">DP Analytics</a> of Independent Analytics.
+                                Activeer eerst <a href="<?php echo esc_url( $pi_url ); ?>">DP Analytics</a>.
                             </div>
                         <?php elseif ( $needs_analytics ) : ?>
                             <div class="dp-dw-hint">

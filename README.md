@@ -10,7 +10,6 @@ Design Pixels gereedschapskist voor WordPress. Een modulaire verzameling van sit
 - **Dashboard Widgets** — Aangepaste dashboard-widgets met Independent Analytics integratie
 - **Site Navigator** — Snelnavigatie via de admin bar voor Bricks Builder
 - **Role Manager** — Beheer wat rollen kunnen zien
-- **Branding** — Custom kleur voor admin-sidebar iconen
 - **SMTP Mailer** — Externe SMTP-server configureren
 - **Redirects** — 301/302 redirects met regex-ondersteuning
 - **Security Headers** — HTTP-beveiligingsheaders

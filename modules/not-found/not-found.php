@@ -74,11 +74,10 @@ function dp_toolbox_404_pad( $request_uri ) {
 /**
  * Paden die we niet in de lijst willen.
  *
- * De homepage hoort daarbij. Een 404 op '/' los je niet op met een omleiding:
- * de Redirects-module indexeert een regel vanaf '/' als lege sleutel terwijl
- * hij binnenkomende verzoeken als '/' opzoekt, dus zo'n regel matcht nooit.
- * Bovendien betekent een 404 op de voorpagina dat de instelling daarvoor stuk
- * is, en dat repareer je bij Instellingen > Lezen.
+ * De homepage hoort daarbij. Sinds Redirects 1.2.0 zou een omleiding vanaf '/'
+ * technisch werken, maar het blijft het verkeerde gereedschap: een 404 op je
+ * voorpagina betekent dat de instelling daarvoor stuk is, en dat repareer je
+ * bij Instellingen > Lezen. Een omleiding zou dat alleen maskeren.
  */
 function dp_toolbox_404_overslaan( $path ) {
     if ( '/' === $path ) {

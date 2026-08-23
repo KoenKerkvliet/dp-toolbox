@@ -41,12 +41,102 @@ function dp_toolbox_pi_get_recommended() {
             'description' => 'Backups met gratis cloud storage.',
         ],
         [
-            'slug'        => 'independent-analytics',
-            'file'        => 'independent-analytics/iawp.php',
-            'name'        => 'Independent Analytics',
-            'description' => 'Privacy-vriendelijke analytics zonder cookies.',
+            'slug'        => 'dp-analytics',
+            'file'        => 'dp-analytics/dp-analytics.php',
+            'name'        => 'DP Analytics',
+            'description' => 'Cookieless statistieken, geen toestemming nodig. Voedt ook het klantrapport via MainWP. Updates via Git Updater.',
+            'source'      => 'github',
+            'repo'        => 'KoenKerkvliet/dp-analytics',
+        ],
+        [
+            'slug'        => 'dp-cookie-consent',
+            'file'        => 'dp-cookie-consent/dp-cookie-consent.php',
+            'name'        => 'DP Cookie Consent',
+            'description' => 'Eigen cookiebanner: cache-safe, blokkeert vooraf, met scanner. Updates via Git Updater.',
+            'source'      => 'github',
+            'repo'        => 'KoenKerkvliet/dp-cookie-consent',
         ],
     ];
+}
+
+/* ------------------------------------------------------------------ */
+/*  GitHub als bron                                                    */
+/*                                                                     */
+/*  Eigen plugins staan niet op wordpress.org, dus daar werkt          */
+/*  plugins_api() niet. We halen de nieuwste tag op en installeren de   */
+/*  bijbehorende zipball.                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Download-URL van de nieuwste tag, of van de hoofdbranch als er geen tags zijn.
+ *
+ * @return string|WP_Error
+ */
+function dp_toolbox_pi_github_download_url( $repo ) {
+    $response = wp_remote_get(
+        'https://api.github.com/repos/' . $repo . '/tags',
+        [ 'timeout' => 15, 'headers' => [ 'Accept' => 'application/vnd.github+json' ] ]
+    );
+
+    if ( is_wp_error( $response ) ) {
+        return new WP_Error( 'dp_pi_github', 'GitHub niet bereikbaar: ' . $response->get_error_message() );
+    }
+
+    $code = (int) wp_remote_retrieve_response_code( $response );
+    if ( 404 === $code ) {
+        return new WP_Error( 'dp_pi_github', 'Repository niet gevonden of niet publiek: ' . $repo );
+    }
+    if ( 403 === $code ) {
+        return new WP_Error( 'dp_pi_github', 'GitHub weigert het verzoek — waarschijnlijk de limiet van 60 aanvragen per uur bereikt. Probeer het over een uur opnieuw.' );
+    }
+    if ( 200 !== $code ) {
+        return new WP_Error( 'dp_pi_github', 'GitHub gaf HTTP ' . $code . ' terug.' );
+    }
+
+    $tags = json_decode( wp_remote_retrieve_body( $response ), true );
+
+    if ( is_array( $tags ) && ! empty( $tags[0]['name'] ) ) {
+        return 'https://github.com/' . $repo . '/archive/refs/tags/' . rawurlencode( $tags[0]['name'] ) . '.zip';
+    }
+
+    // Geen tags: val terug op de hoofdbranch.
+    return 'https://github.com/' . $repo . '/archive/refs/heads/main.zip';
+}
+
+/**
+ * Hernoem de uitgepakte map naar de juiste plugin-slug.
+ *
+ * Een zipball van GitHub pakt uit als `repo-1.4.0`, terwijl WordPress de map
+ * `dp-analytics` verwacht — anders staat de plugin onder een naam die bij de
+ * volgende update niet meer klopt.
+ *
+ * @return callable Filter die je aan `upgrader_source_selection` hangt.
+ */
+function dp_toolbox_pi_hernoem_naar_slug( $slug ) {
+    return function ( $source, $remote_source = '', $upgrader = null, $extra = [] ) use ( $slug ) {
+        global $wp_filesystem;
+
+        if ( is_wp_error( $source ) || ! $wp_filesystem ) {
+            return $source;
+        }
+
+        $huidige_map = basename( untrailingslashit( $source ) );
+        if ( $huidige_map === $slug ) {
+            return $source;
+        }
+
+        $doel = trailingslashit( dirname( untrailingslashit( $source ) ) ) . $slug;
+
+        if ( $wp_filesystem->exists( $doel ) ) {
+            $wp_filesystem->delete( $doel, true );
+        }
+
+        if ( ! $wp_filesystem->move( untrailingslashit( $source ), $doel ) ) {
+            return new WP_Error( 'dp_pi_hernoem', 'Kon de uitgepakte map niet hernoemen naar ' . $slug . '.' );
+        }
+
+        return trailingslashit( $doel );
+    };
 }
 
 /* ------------------------------------------------------------------ */
@@ -463,16 +553,34 @@ add_action( 'wp_ajax_dp_toolbox_pi_install', function () {
         wp_send_json_success( [ 'slug' => $slug, 'status' => $status['state'], 'file' => $status['file'] ] );
     }
 
-    $api = plugins_api( 'plugin_information', [
-        'slug'   => $slug,
-        'fields' => [ 'sections' => false ],
-    ] );
-    if ( is_wp_error( $api ) ) {
-        wp_send_json_error( [ 'message' => 'wp.org API: ' . $api->get_error_message() ] );
+    $upgrader = new Plugin_Upgrader( new WP_Ajax_Upgrader_Skin() );
+    $hernoem  = null;
+
+    if ( 'github' === ( $plugin['source'] ?? 'wporg' ) ) {
+        $download = dp_toolbox_pi_github_download_url( $plugin['repo'] );
+        if ( is_wp_error( $download ) ) {
+            wp_send_json_error( [ 'message' => $download->get_error_message() ] );
+        }
+
+        // Zipballs pakken uit als `repo-versie`; hernoemen naar de slug.
+        $hernoem = dp_toolbox_pi_hernoem_naar_slug( $slug );
+        add_filter( 'upgrader_source_selection', $hernoem, 10, 4 );
+    } else {
+        $api = plugins_api( 'plugin_information', [
+            'slug'   => $slug,
+            'fields' => [ 'sections' => false ],
+        ] );
+        if ( is_wp_error( $api ) ) {
+            wp_send_json_error( [ 'message' => 'wp.org API: ' . $api->get_error_message() ] );
+        }
+        $download = $api->download_link;
     }
 
-    $upgrader = new Plugin_Upgrader( new WP_Ajax_Upgrader_Skin() );
-    $result   = $upgrader->install( $api->download_link );
+    $result = $upgrader->install( $download );
+
+    if ( $hernoem ) {
+        remove_filter( 'upgrader_source_selection', $hernoem, 10 );
+    }
 
     if ( is_wp_error( $result ) ) {
         wp_send_json_error( [ 'message' => 'Installatie mislukt: ' . $result->get_error_message() ] );

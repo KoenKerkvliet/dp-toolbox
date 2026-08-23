@@ -118,6 +118,60 @@ add_action( 'admin_post_dp_toolbox_um_save', function () {
 } );
 
 /* ------------------------------------------------------------------
+ *  Instellingen van een andere gebruiker overnemen
+ *
+ *  Twee klant-admins op dezelfde site krijgen in de praktijk dezelfde
+ *  beperkingen. Die tien vinkjes een tweede keer met de hand zetten is
+ *  foutgevoelig, en bij een wijziging moet je ze allebei bijwerken.
+ * ------------------------------------------------------------------ */
+add_action( 'admin_post_dp_toolbox_um_kopieer', function () {
+    if ( ! current_user_can( 'manage_options' ) || ! dp_toolbox_um_is_superadmin() ) {
+        wp_die( 'Geen toegang' );
+    }
+    check_admin_referer( 'dp_toolbox_um_kopieer' );
+
+    $naar = isset( $_POST['target_user'] ) ? (int) $_POST['target_user'] : 0;
+    $van  = isset( $_POST['bron_user'] ) ? (int) $_POST['bron_user'] : 0;
+
+    if ( ! $naar || ! $van || $naar === $van ) {
+        wp_die( 'Kies een andere gebruiker om van over te nemen.' );
+    }
+    if ( dp_toolbox_um_is_superadmin( $naar ) ) {
+        wp_die( 'Deze gebruiker staat op de whitelist en kan niet worden beperkt.' );
+    }
+
+    update_option( 'dp_toolbox_um_user_' . $naar, dp_toolbox_um_get_settings( $van ) );
+
+    wp_safe_redirect( add_query_arg( [
+        'page'      => 'dp-toolbox-user-manager',
+        'user'      => $naar,
+        'gekopieerd'=> '1',
+    ], admin_url( 'admin.php' ) ) );
+    exit;
+} );
+
+/**
+ * Andere administrators die al instellingen hebben, om van over te nemen.
+ */
+function dp_toolbox_um_bronnen( $behalve_uid ) {
+    $bronnen = [];
+
+    foreach ( get_users( [ 'role' => 'administrator', 'orderby' => 'display_name' ] ) as $u ) {
+        if ( (int) $u->ID === (int) $behalve_uid || dp_toolbox_um_is_superadmin( $u->ID ) ) {
+            continue;
+        }
+
+        $s = dp_toolbox_um_get_settings( $u->ID );
+        $aantal = count( $s['plugins'] ) + count( $s['menus'] ) + count( $s['submenus'] );
+        if ( $aantal > 0 ) {
+            $bronnen[ $u->ID ] = sprintf( '%s (%d ingesteld)', $u->display_name, $aantal );
+        }
+    }
+
+    return $bronnen;
+}
+
+/* ------------------------------------------------------------------
  *  Render pagina
  * ------------------------------------------------------------------ */
 function dp_toolbox_um_render_inline() {
@@ -194,12 +248,21 @@ function dp_toolbox_um_render_inline() {
     if ( ! empty( $_GET['updated'] ) ) {
         echo '<div class="notice notice-success is-dismissible"><p>Instellingen opgeslagen.</p></div>';
     }
+    if ( ! empty( $_GET['gekopieerd'] ) ) {
+        echo '<div class="notice notice-success is-dismissible"><p>Instellingen overgenomen. Loop ze na en sla op als je nog iets wilt aanpassen.</p></div>';
+    }
     if ( empty( $all_menus ) ) {
         echo '<div class="notice notice-warning"><p><strong>Menu-structuur nog niet gecached.</strong> Open eerst een willekeurige andere admin-pagina (bv. Dashboard) om de menu-structuur te laden, kom daarna terug.</p></div>';
     }
     ?>
 
     <style>
+        .dp-um-kopieer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            background: #f8f7fc; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 12px 16px; margin-bottom: 12px; }
+        .dp-um-kopieer label { font-size: 13px; font-weight: 600; color: #1d2327; }
+        .dp-um-kopieer select { border-radius: 6px; }
+        .dp-um-kopieer-uitleg { font-size: 12px; color: #666; }
         .dp-um-layout { display: grid; grid-template-columns: 280px 1fr; gap: 0; background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
         .dp-um-users { background: #f8f7fc; border-right: 1px solid #e0e0e0; max-height: 760px; overflow: auto; }
         .dp-um-users-title { font-size: 11px; font-weight: 700; color: #281E5D; text-transform: uppercase; letter-spacing: 0.8px; padding: 14px 18px 8px; }
@@ -302,6 +365,32 @@ function dp_toolbox_um_render_inline() {
             <?php if ( ! $selected_user && $mode !== 'role' ) : ?>
                 <div class="dp-um-empty">Kies links een administrator of rol om te beheren.</div>
             <?php else : ?>
+
+                <?php
+                /* Overnemen van een andere admin — buiten het hoofdformulier,
+                   want een formulier in een formulier is ongeldige HTML. */
+                $bronnen = ( $mode === 'user' && $selected_user )
+                    ? dp_toolbox_um_bronnen( $selected_user->ID )
+                    : [];
+                ?>
+                <?php if ( $bronnen ) : ?>
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+                          class="dp-um-kopieer"
+                          onsubmit="return confirm('De huidige instellingen van deze gebruiker worden overschreven. Doorgaan?');">
+                        <input type="hidden" name="action" value="dp_toolbox_um_kopieer">
+                        <input type="hidden" name="target_user" value="<?php echo esc_attr( $selected_user->ID ); ?>">
+                        <?php wp_nonce_field( 'dp_toolbox_um_kopieer' ); ?>
+                        <label for="dp-um-bron">Overnemen van</label>
+                        <select name="bron_user" id="dp-um-bron">
+                            <?php foreach ( $bronnen as $bron_id => $label ) : ?>
+                                <option value="<?php echo esc_attr( $bron_id ); ?>"><?php echo esc_html( $label ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="submit" class="button">Instellingen overnemen</button>
+                        <span class="dp-um-kopieer-uitleg">Handig bij een tweede beheerder die hetzelfde mag zien.</span>
+                    </form>
+                <?php endif; ?>
+
                 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                     <input type="hidden" name="action" value="dp_toolbox_um_save">
                     <?php if ( $mode === 'role' ) : ?>
@@ -315,6 +404,26 @@ function dp_toolbox_um_render_inline() {
                         <h2><?php echo esc_html( $title ); ?></h2>
                         <p><?php echo esc_html( $subtitle ); ?></p>
                     </div>
+
+                    <?php
+                    /*
+                     * Rolregels worden opgeslagen in de opties van Role Manager en
+                     * ook dóór die module toegepast. Staat hij uit, dan kun je hier
+                     * van alles instellen zonder dat er iets gebeurt.
+                     */
+                    if ( $mode === 'role'
+                        && function_exists( 'dp_toolbox_is_module_enabled' )
+                        && ! dp_toolbox_is_module_enabled( 'role-manager' ) ) : ?>
+                        <div class="dp-um-warning" style="background:#fcf9e8;border-left:3px solid #dba617;">
+                            <span class="dashicons dashicons-warning"></span>
+                            <div>
+                                Wat je hier instelt wordt pas toegepast als de module
+                                <strong>Role Manager</strong> aanstaat. Die past de rolregels toe;
+                                dit scherm bewaart ze alleen. Instellingen per gebruiker werken wél
+                                zonder die module.
+                            </div>
+                        </div>
+                    <?php endif; ?>
 
                     <div class="dp-um-warning">
                         <span class="dashicons dashicons-info"></span>

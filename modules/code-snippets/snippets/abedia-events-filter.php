@@ -2,9 +2,9 @@
 /**
  * Name: Komende evenementen — verberg verlopen events
  * Description: Filtert Bricks loop queries voor 'evenementen' zodat alleen events met datum >= nu getoond worden, gesorteerd op datum oplopend (eerstvolgende eerst). Werkt op render-tijd via Bricks' query_vars filter — survived Bricks editor saves.
- * Sites: preciousduck.s5-tastewp.com,abedia.nl
+ * Sites: abedia.nl
  * Status: active
- * Version: 1.2.0
+ * Version: 1.3.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

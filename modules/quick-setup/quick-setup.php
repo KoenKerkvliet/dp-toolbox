@@ -3,7 +3,7 @@
  * Module Name: Quick Setup
  * Description: Configureer een nieuwe WordPress-installatie met één klik — taal, tijdzone, datum en meer.
  * Category: dashboard
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -70,7 +70,20 @@ add_action( 'wp_dashboard_setup', function () {
         return;
     }
 
-    // Wis alle metaboxen behalve DP Toolbox eigen widgets (prefix dp_toolbox_)
+    /*
+     * Alles weg, behalve wat we zelf bijdragen. Let op de prefixen: dit trof
+     * eerder ook de widgets van onze eigen andere plugins — DP Analytics zet
+     * 'dpa_overview' neer, Fotomarathon een eigen widget. Die verdwenen dan
+     * zonder aanwijsbare reden van het dashboard, en op abedia is dat met een
+     * snippet teruggezet in plaats van hier opgelost.
+     */
+    $behouden = apply_filters( 'dp_toolbox_qs_dashboard_behouden', [
+        'dp_toolbox_',
+        'dpa_',            // DP Analytics
+        'foto_marathon_',  // Fotomarathon
+        'dpcc_',           // DP Cookie Consent
+    ] );
+
     foreach ( $wp_meta_boxes['dashboard'] as $context => $priorities ) {
         if ( ! is_array( $priorities ) ) {
             continue;
@@ -80,9 +93,12 @@ add_action( 'wp_dashboard_setup', function () {
                 continue;
             }
             foreach ( $widgets as $id => $widget ) {
-                if ( strpos( (string) $id, 'dp_toolbox_' ) !== 0 ) {
-                    unset( $wp_meta_boxes['dashboard'][ $context ][ $priority ][ $id ] );
+                foreach ( $behouden as $prefix ) {
+                    if ( strpos( (string) $id, $prefix ) === 0 ) {
+                        continue 2;
+                    }
                 }
+                unset( $wp_meta_boxes['dashboard'][ $context ][ $priority ][ $id ] );
             }
         }
     }
