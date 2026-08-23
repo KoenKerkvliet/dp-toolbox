@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DP Toolbox
  * Description: Design Pixels gereedschapskist — modulaire verzameling van site-tools.
- * Version: 2.47.0
+ * Version: 2.47.1
  * Author: Design Pixels
  * Text Domain: dp-toolbox
  * GitHub Plugin URI: KoenKerkvliet/dp-toolbox
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DP_TOOLBOX_VERSION', '2.47.0' );
+define( 'DP_TOOLBOX_VERSION', '2.47.1' );
 define( 'DP_TOOLBOX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DP_TOOLBOX_URL', plugin_dir_url( __FILE__ ) );
 
@@ -172,6 +172,38 @@ function dp_toolbox_migrate_checklist_module() {
     update_option( 'dp_toolbox_checklist_migrated', 1, false );
 }
 add_action( 'plugins_loaded', 'dp_toolbox_migrate_checklist_module', 5 );
+
+/**
+ * Een inlogpagina mag nooit uit een paginacache komen.
+ *
+ * WordPress zet zelf al no-cache-headers op wp-login.php, maar cacheplugins
+ * gaan af op hun eigen uitsluitingslijst — en die noemt letterlijk
+ * `wp-login.php`. Verplaats je je login (met AIOS, of met onze eigen Custom
+ * Login URL), dan krijg je een adres dat eruitziet als een gewone pagina, en
+ * dat wordt dus gewoon gecachet.
+ *
+ * Gevolgen die je niet meteen als cacheprobleem herkent: aanpassingen aan de
+ * loginpagina lijken niets te doen, en in het ergste geval krijgt de volgende
+ * bezoeker een meldingsregel te zien die voor iemand anders bedoeld was.
+ *
+ * `login_init` draait in wp-login.php vóór er iets is uitgestuurd, ook wanneer
+ * een plugin die file onder een eigen adres inlaadt.
+ */
+function dp_toolbox_nocache_login_page() {
+    /**
+     * Uit te zetten per site, mocht een cache-opstelling hier anders mee omgaan.
+     */
+    if ( ! apply_filters( 'dp_toolbox_nocache_login', true ) ) {
+        return;
+    }
+
+    if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+        define( 'DONOTCACHEPAGE', true );
+    }
+
+    do_action( 'litespeed_control_set_nocache', 'DP Toolbox: inlogpagina' );
+}
+add_action( 'login_init', 'dp_toolbox_nocache_login_page', 0 );
 
 /* ------------------------------------------------------------------ */
 /*  Module-vereisten                                                    */
