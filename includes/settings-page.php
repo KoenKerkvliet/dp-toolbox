@@ -111,8 +111,15 @@ function dp_toolbox_settings_page() {
         wp_die( 'Je hebt geen toegang tot deze pagina.' );
     }
 
-    $tab_param = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
-    $tab       = in_array( $tab_param, [ 'admin', 'checklist' ], true ) ? $tab_param : 'modules';
+    $tab_param    = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+    $checklist_aan = dp_toolbox_is_module_enabled( 'checklist' ) && function_exists( 'dp_toolbox_render_checklist_tab' );
+
+    $tabs = [ 'admin' ];
+    if ( $checklist_aan ) {
+        $tabs[] = 'checklist';
+    }
+
+    $tab = in_array( $tab_param, $tabs, true ) ? $tab_param : 'modules';
     $base_url  = admin_url( 'admin.php?page=dp-toolbox' );
 
     // Pre-calculate module counts for header display
@@ -219,9 +226,11 @@ function dp_toolbox_settings_page() {
                     <a href="<?php echo esc_url( add_query_arg( 'tab', 'admin', $base_url ) ); ?>" class="<?php echo $tab === 'admin' ? 'active' : ''; ?>">
                         <span class="dashicons dashicons-admin-generic"></span> Instellingen
                     </a>
-                    <a href="<?php echo esc_url( add_query_arg( 'tab', 'checklist', $base_url ) ); ?>" class="<?php echo $tab === 'checklist' ? 'active' : ''; ?>">
-                        <span class="dashicons dashicons-yes-alt"></span> Checklist
-                    </a>
+                    <?php if ( $checklist_aan ) : ?>
+                        <a href="<?php echo esc_url( add_query_arg( 'tab', 'checklist', $base_url ) ); ?>" class="<?php echo $tab === 'checklist' ? 'active' : ''; ?>">
+                            <span class="dashicons dashicons-yes-alt"></span> Oplevercheck
+                        </a>
+                    <?php endif; ?>
                 </nav>
                 <div class="dp-header-actions" id="dp-header-actions">
                         <?php if ( $tab === 'modules' ) : ?>

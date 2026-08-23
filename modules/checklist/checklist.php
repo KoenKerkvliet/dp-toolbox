@@ -1,6 +1,9 @@
 <?php
 /**
- * DP Toolbox — Site-oplevering checklist
+ * Module Name: Oplevercheck
+ * Description: Afvinklijst voor het opleveren van een site. Kies zelf welke onderdelen je wilt zien.
+ * Category: dashboard
+ * Version: 2.0.0
  *
  * Per-site afvinkbare lijst met items die horen bij een site-oplevering.
  * Auto-items checken zichzelf live; handmatige items worden opgeslagen
@@ -10,6 +13,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 const DP_TOOLBOX_CHECKLIST_OPTION = 'dp_toolbox_checklist_state';
+const DP_TOOLBOX_CHECKLIST_GROEPEN = 'dp_toolbox_checklist_groepen';
 
 /* ------------------------------------------------------------------ */
 /*  Registry                                                           */
@@ -328,9 +332,10 @@ function dp_toolbox_get_checklist_groups() {
                 [
                     'id'    => 'cookie_consent_active',
                     'label' => 'Cookie consent actief',
-                    'desc'  => 'Complianz, CookieYes, of vergelijkbaar.',
+                    'desc'  => 'DP Cookie Consent, Complianz, CookieYes of vergelijkbaar.',
                     'check' => function () {
                         return dp_toolbox_cl_any_plugin_active( [
+                            'dp-cookie-consent/dp-cookie-consent.php',
                             'complianz-gdpr/complianz-gpdr.php',
                             'complianz-gdpr-premium/complianz-gpdr-premium.php',
                             'cookie-law-info/cookie-law-info.php',
@@ -344,9 +349,10 @@ function dp_toolbox_get_checklist_groups() {
                 [
                     'id'    => 'analytics_active',
                     'label' => 'Analytics-plugin actief',
-                    'desc'  => 'Independent Analytics, Site Kit, MonsterInsights, etc.',
+                    'desc'  => 'DP Analytics, Independent Analytics, Site Kit of vergelijkbaar.',
                     'check' => function () {
                         return dp_toolbox_cl_any_plugin_active( [
+                            'dp-analytics/dp-analytics.php',
                             'independent-analytics/iawp.php',
                             'google-site-kit/google-site-kit.php',
                             'google-analytics-for-wordpress/googleanalytics.php',
@@ -399,15 +405,59 @@ function dp_toolbox_get_checklist_groups() {
                     'fix_label' => 'Gebruikers',
                 ],
                 [
+                    'id'    => 'dp_handleiding_active',
+                    'label' => 'Handleiding-plugin actief',
+                    'desc'  => 'DP Handleiding staat in het menu van de klant als naslagwerk.',
+                    'check' => function () {
+                        return dp_toolbox_cl_any_plugin_active( [
+                            'dp-handleiding/dp-handleiding.php',
+                        ] );
+                    },
+                    'fix'   => admin_url( 'plugins.php' ),
+                    'fix_label' => 'Plugins',
+                ],
+                [
                     'id'    => 'manual_handed_over',
-                    'label' => 'Handleiding overhandigd',
-                    'desc'  => 'Klant heeft korte handleiding/training gehad.',
+                    'label' => 'Handleiding doorgenomen',
+                    'desc'  => 'Klant heeft korte uitleg of training gehad.',
                 ],
             ],
         ],
     ];
 
     return apply_filters( 'dp_toolbox_checklist_groups', $groups );
+}
+
+/**
+ * Welke groepen staan aan? Standaard allemaal.
+ *
+ * Bewust één module met schakelaars per groep, en niet acht losse modules: het
+ * is één werkstroom (een oplevering), en acht extra regels zouden de modulelijst
+ * vertroebelen zonder dat je er iets mee wint.
+ */
+function dp_toolbox_checklist_groep_keuze() {
+    $opgeslagen = get_option( DP_TOOLBOX_CHECKLIST_GROEPEN, null );
+
+    if ( ! is_array( $opgeslagen ) ) {
+        return array_keys( dp_toolbox_get_checklist_groups() );
+    }
+
+    return array_map( 'sanitize_key', $opgeslagen );
+}
+
+/**
+ * De groepen die daadwerkelijk getoond en afgevinkt mogen worden.
+ */
+function dp_toolbox_checklist_actieve_groepen() {
+    $aan = dp_toolbox_checklist_groep_keuze();
+
+    return array_filter(
+        dp_toolbox_get_checklist_groups(),
+        function ( $key ) use ( $aan ) {
+            return in_array( $key, $aan, true );
+        },
+        ARRAY_FILTER_USE_KEY
+    );
 }
 
 /* ------------------------------------------------------------------ */
@@ -468,9 +518,9 @@ add_action( 'wp_ajax_dp_toolbox_checklist_toggle', function () {
         wp_send_json_error( 'missing id', 400 );
     }
 
-    // Guard: alleen geregistreerde manual items toelaten.
+    // Guard: alleen handmatige items uit een ingeschakelde groep toelaten.
     $valid = false;
-    foreach ( dp_toolbox_get_checklist_groups() as $g ) {
+    foreach ( dp_toolbox_checklist_actieve_groepen() as $g ) {
         foreach ( $g['items'] as $item ) {
             if ( $item['id'] === $id && empty( $item['check'] ) ) {
                 $valid = true;
@@ -491,7 +541,7 @@ add_action( 'wp_ajax_dp_toolbox_checklist_toggle', function () {
 /* ------------------------------------------------------------------ */
 
 function dp_toolbox_render_checklist_tab() {
-    $groups = dp_toolbox_get_checklist_groups();
+    $groups = dp_toolbox_checklist_actieve_groepen();
     $state  = dp_toolbox_checklist_get_state();
     $nonce  = wp_create_nonce( 'dp_toolbox_checklist' );
 
@@ -773,4 +823,8 @@ function dp_toolbox_render_checklist_tab() {
     })();
     </script>
     <?php
+}
+
+if ( is_admin() ) {
+    require_once __DIR__ . '/admin-page.php';
 }

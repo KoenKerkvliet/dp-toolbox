@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DP Toolbox
  * Description: Design Pixels gereedschapskist — modulaire verzameling van site-tools.
- * Version: 2.44.0
+ * Version: 2.45.0
  * Author: Design Pixels
  * Text Domain: dp-toolbox
  * GitHub Plugin URI: KoenKerkvliet/dp-toolbox
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DP_TOOLBOX_VERSION', '2.44.0' );
+define( 'DP_TOOLBOX_VERSION', '2.45.0' );
 define( 'DP_TOOLBOX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DP_TOOLBOX_URL', plugin_dir_url( __FILE__ ) );
 
@@ -146,6 +146,32 @@ function dp_toolbox_migrate_dashboard_widgets() {
     update_option( 'dp_toolbox_dashboard_migrated', 1 );
 }
 add_action( 'plugins_loaded', 'dp_toolbox_migrate_dashboard_widgets', 5 );
+
+/**
+ * De oplevercheck was een vast tabblad en is sinds 2.45.0 een module.
+ *
+ * Standaard staat een module uit. Op sites waar de lijst al gebruikt werd — er
+ * staan afgevinkte punten in — zetten we hem eenmalig aan, zodat een oplevering
+ * die halverwege is niet ineens uit beeld verdwijnt.
+ */
+function dp_toolbox_migrate_checklist_module() {
+    if ( get_option( 'dp_toolbox_checklist_migrated' ) ) {
+        return;
+    }
+
+    $state = get_option( 'dp_toolbox_checklist_state', [] );
+
+    if ( is_array( $state ) && ! empty( $state ) ) {
+        $enabled = (array) get_option( 'dp_toolbox_enabled_modules', [] );
+        if ( ! in_array( 'checklist', $enabled, true ) ) {
+            $enabled[] = 'checklist';
+            update_option( 'dp_toolbox_enabled_modules', array_values( $enabled ) );
+        }
+    }
+
+    update_option( 'dp_toolbox_checklist_migrated', 1, false );
+}
+add_action( 'plugins_loaded', 'dp_toolbox_migrate_checklist_module', 5 );
 
 /* ------------------------------------------------------------------ */
 /*  Module-vereisten                                                    */
@@ -292,6 +318,5 @@ add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
 /* Shared admin UI + Settings page — always loaded */
 require_once DP_TOOLBOX_PATH . 'includes/branding.php';
 require_once DP_TOOLBOX_PATH . 'includes/admin-ui.php';
-require_once DP_TOOLBOX_PATH . 'includes/checklist.php';
 require_once DP_TOOLBOX_PATH . 'includes/settings-page.php';
 require_once DP_TOOLBOX_PATH . 'includes/import-export.php';
