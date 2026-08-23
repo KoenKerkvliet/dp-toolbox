@@ -84,6 +84,64 @@ function dp_toolbox_branding_color( $key ) {
 }
 
 /**
+ * Een kleur als "r, g, b" — die vorm heeft WordPress nodig voor zijn
+ * `--wp-admin-theme-color--rgb`-variabelen.
+ */
+function dp_toolbox_branding_rgb( $key ) {
+    $hex = ltrim( (string) dp_toolbox_branding_color( $key ), '#' );
+
+    if ( 3 === strlen( $hex ) ) {
+        $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+    }
+
+    if ( 6 !== strlen( $hex ) || ! ctype_xdigit( $hex ) ) {
+        return '40, 30, 93'; // terugval op het DP-paars
+    }
+
+    return implode( ', ', [
+        hexdec( substr( $hex, 0, 2 ) ),
+        hexdec( substr( $hex, 2, 2 ) ),
+        hexdec( substr( $hex, 4, 2 ) ),
+    ] );
+}
+
+/**
+ * De kleurvariabelen van WordPress zelf, gelijkgetrokken met de branding.
+ *
+ * WordPress zet `--wp-admin-theme-color` op `body` (via de klasse
+ * `admin-color-modern`), en al zijn eigen bedieningselementen leiden hun kleur
+ * daaruit af: het oogje bij het wachtwoordveld, het vinkje van "Onthoud mij",
+ * de focusranden. Zonder deze overschrijving blijven die WordPress-blauw,
+ * hoe je de rest ook kleurt.
+ *
+ * Let op de selector. WordPress zet de variabele op `body.admin-color-modern`
+ * (specificiteit 0,1,1). Een overschrijving op `:root` verliest daarvan, en
+ * `body.login` is even specifiek — dan beslist de volgorde in het document,
+ * en daar wil je niet van afhankelijk zijn. Vandaar twee klassen: `body.login
+ * .wp-core-ui` staat op 0,2,1 en wint altijd. Beide klassen staan standaard op
+ * de loginpagina.
+ *
+ * @param string $selector Waar de variabelen op gezet worden.
+ */
+function dp_toolbox_branding_wp_vars_css( $selector = 'body.login.wp-core-ui' ) {
+    return sprintf(
+        '%1$s {
+            --wp-admin-theme-color: %2$s;
+            --wp-admin-theme-color--rgb: %3$s;
+            --wp-admin-theme-color-darker-10: %4$s;
+            --wp-admin-theme-color-darker-10--rgb: %5$s;
+            --wp-admin-theme-color-darker-20: %4$s;
+            --wp-admin-theme-color-darker-20--rgb: %5$s;
+        }',
+        $selector,
+        dp_toolbox_branding_color( 'accent' ),
+        dp_toolbox_branding_rgb( 'accent' ),
+        dp_toolbox_branding_color( 'accent_hover' ),
+        dp_toolbox_branding_rgb( 'accent_hover' )
+    );
+}
+
+/**
  * De credit onderaan de onderhoudspagina. Leeg in klantmodus.
  */
 function dp_toolbox_branding_credit_html() {

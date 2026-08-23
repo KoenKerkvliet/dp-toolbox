@@ -3,7 +3,7 @@
  * Module Name: Login Branding
  * Description: Geeft de WordPress-loginpagina een eigen uiterlijk, met het logo van de site of van Design Pixels.
  * Category: appearance
- * Version: 1.1.0
+ * Version: 1.2.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -20,9 +20,37 @@ add_action( 'login_enqueue_scripts', function () {
     $gradient     = dp_toolbox_branding_color( 'gradient' );
     ?>
     <style>
+        /* De eigen kleurvariabelen van WordPress meenemen, anders blijven het
+           oogje bij het wachtwoord, het vinkje van "Onthoud mij" en de
+           focusranden WordPress-blauw terwijl de rest wél meekleurt. */
+        <?php echo dp_toolbox_branding_wp_vars_css(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+
         /* Background */
         body.login {
             background: <?php echo esc_attr( $gradient ); ?> !important;
+        }
+
+        /* Het toon/verberg-oogje bij het wachtwoordveld */
+        .login .wp-pwd button.wp-hide-pw,
+        .login .wp-pwd button.wp-hide-pw .dashicons {
+            color: <?php echo esc_attr( $accent ); ?> !important;
+        }
+        .login .wp-pwd button.wp-hide-pw:hover,
+        .login .wp-pwd button.wp-hide-pw:hover .dashicons {
+            color: <?php echo esc_attr( $accent_hover ); ?> !important;
+        }
+
+        /* Het vinkje van "Onthoud mij" */
+        .login input[type="checkbox"]:checked::before {
+            filter: none;
+        }
+        .login input[type="checkbox"]:checked {
+            background: <?php echo esc_attr( $accent ); ?> !important;
+            border-color: <?php echo esc_attr( $accent ); ?> !important;
+        }
+        .login input[type="checkbox"]:checked::before {
+            content: url("data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%3E%3Cpath%20d%3D%27M14.83%204.89l1.34.94-5.81%208.38H9.02L5.78%209.67l1.34-1.25%202.57%202.4z%27%20fill%3D%27%23fff%27%2F%3E%3C%2Fsvg%3E") !important;
+            margin: -3px 0 0 -4px;
         }
 
         /* Logo — of de sitenaam als tekst wanneer er geen logo is */
