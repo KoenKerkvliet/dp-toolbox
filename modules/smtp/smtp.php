@@ -3,12 +3,32 @@
  * Module Name: SMTP Mailer
  * Description: Configureer een SMTP-server voor betrouwbare e-mailverzending vanuit WordPress.
  * Category: tools
- * Version: 1.2.0
+ * Version: 1.2.1
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+
+/**
+ * Restanten van een oudere versie opruimen.
+ *
+ * `dp_smtp_last_error` en `dp_smtp_debug_log` werden ooit weggeschreven maar
+ * nooit meer gewist. Op sites die die versie hebben gedraaid staat er dus een
+ * foutmelding van maanden geleden, terwijl de mail al lang weer werkt — en daar
+ * ga je bij het zoeken naar een mailprobleem gegarandeerd op af. Voor inzicht
+ * in de actuele situatie is er nu de module Mail Log.
+ */
+add_action( 'admin_init', function () {
+    if ( get_option( 'dp_toolbox_smtp_opgeruimd' ) ) {
+        return;
+    }
+
+    delete_option( 'dp_smtp_last_error' );
+    delete_option( 'dp_smtp_debug_log' );
+
+    update_option( 'dp_toolbox_smtp_opgeruimd', 1, false );
+} );
 
 /* ------------------------------------------------------------------ */
 /*  Encryption helpers                                                 */
