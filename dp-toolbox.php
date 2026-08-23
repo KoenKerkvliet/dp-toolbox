@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DP Toolbox
  * Description: Design Pixels gereedschapskist — modulaire verzameling van site-tools.
- * Version: 2.45.0
+ * Version: 2.46.0
  * Author: Design Pixels
  * Text Domain: dp-toolbox
  * GitHub Plugin URI: KoenKerkvliet/dp-toolbox
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DP_TOOLBOX_VERSION', '2.45.0' );
+define( 'DP_TOOLBOX_VERSION', '2.46.0' );
 define( 'DP_TOOLBOX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DP_TOOLBOX_URL', plugin_dir_url( __FILE__ ) );
 
@@ -215,8 +215,38 @@ function dp_toolbox_etch_is_available() {
  * Onvervulde vereisten per module: slug => [ 'met' => bool, 'reason' => string ].
  * Modules zonder entry hebben geen vereisten.
  */
+/**
+ * Is All-In-One Security actief op deze site?
+ */
+function dp_toolbox_aios_is_available() {
+    static $cached = null;
+    if ( null !== $cached ) {
+        return $cached;
+    }
+
+    $bestand = 'all-in-one-wp-security-and-firewall/wp-security.php';
+
+    // Optie i.p.v. is_plugin_active(): dit draait al op plugins_loaded.
+    if ( in_array( $bestand, (array) get_option( 'active_plugins', [] ), true ) ) {
+        return $cached = true;
+    }
+
+    if ( is_multisite() && isset( ( (array) get_site_option( 'active_sitewide_plugins', [] ) )[ $bestand ] ) ) {
+        return $cached = true;
+    }
+
+    return $cached = false;
+}
+
 function dp_toolbox_get_module_requirements() {
     $reqs = [];
+
+    if ( ! dp_toolbox_aios_is_available() ) {
+        $reqs['lockout-notices'] = [
+            'met'    => false,
+            'reason' => 'Vereist All-In-One Security (AIOS). Die plugin verstuurt de uitsluitingsmails die deze module filtert.',
+        ];
+    }
 
     if ( ! dp_toolbox_etch_is_available() ) {
         $reqs['etch-gsap'] = [
