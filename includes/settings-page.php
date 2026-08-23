@@ -53,6 +53,13 @@ add_action( 'admin_init', function () {
         },
         'default' => [],
     ] );
+    register_setting( 'dp_toolbox_admin_settings', 'dp_toolbox_branding_mode', [
+        'type'              => 'string',
+        'sanitize_callback' => function ( $input ) {
+            return in_array( $input, [ 'client', 'dp' ], true ) ? $input : 'dp';
+        },
+        'default' => 'dp',
+    ] );
 } );
 
 /* ------------------------------------------------------------------ */
@@ -853,6 +860,76 @@ function dp_toolbox_render_admin_tab() {
     ?>
     <form method="post" action="options.php">
         <?php settings_fields( 'dp_toolbox_admin_settings' ); ?>
+
+        <?php
+        $branding_mode = dp_toolbox_branding_mode();
+        $branding_logo = dp_toolbox_branding_logo_url();
+        ?>
+        <div class="dp-admin-section">
+            <h2>Branding</h2>
+            <p class="desc">Bepaalt welk logo en welke kleuren bezoekers te zien krijgen op de onderhoudspagina en de inlogpagina.</p>
+
+            <style>
+                .dp-brand-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+                .dp-brand-opt { flex: 1; min-width: 240px; cursor: pointer; }
+                .dp-brand-opt input { position: absolute; opacity: 0; pointer-events: none; }
+                .dp-brand-card {
+                    background: #fff; border: 2px solid #e0e0e0; border-radius: 8px;
+                    padding: 16px 18px; transition: border-color 0.2s, box-shadow 0.2s; height: 100%;
+                }
+                .dp-brand-opt input:checked + .dp-brand-card {
+                    border-color: #281E5D; box-shadow: 0 2px 10px rgba(40,30,93,0.12);
+                }
+                .dp-brand-card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #1d2327; }
+                .dp-brand-card p { margin: 0 0 12px; font-size: 12px; line-height: 1.5; color: #666; }
+                .dp-brand-swatch { height: 34px; border-radius: 5px; display: flex; align-items: center;
+                    justify-content: center; overflow: hidden; }
+                .dp-brand-swatch img { max-height: 22px; max-width: 70%; object-fit: contain; }
+                .dp-brand-swatch span { font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+                    text-transform: uppercase; color: rgba(255,255,255,0.8); }
+                .dp-brand-warn { margin: 10px 0 0; font-size: 12px; color: #8a6d1a; background: #fcf9e8;
+                    border-left: 3px solid #dba617; border-radius: 0 5px 5px 0; padding: 8px 10px; }
+            </style>
+
+            <div class="dp-brand-grid">
+                <label class="dp-brand-opt">
+                    <input type="radio" name="dp_toolbox_branding_mode" value="client" <?php checked( $branding_mode, 'client' ); ?>>
+                    <div class="dp-brand-card">
+                        <h3>Branding van de site</h3>
+                        <p>Het logo van de site zelf, met neutrale kleuren. Voor klantsites.</p>
+                        <div class="dp-brand-swatch" style="background: linear-gradient(135deg, #1d2327 0%, #2c3338 40%, #3c434a 100%);">
+                            <?php
+                            $client_logo_id = (int) get_theme_mod( 'custom_logo' );
+                            $client_logo    = $client_logo_id ? wp_get_attachment_image_url( $client_logo_id, 'full' ) : get_site_icon_url( 512 );
+                            ?>
+                            <?php if ( $client_logo ) : ?>
+                                <img src="<?php echo esc_url( $client_logo ); ?>" alt="">
+                            <?php else : ?>
+                                <span><?php echo esc_html( get_bloginfo( 'name' ) ); ?></span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </label>
+
+                <label class="dp-brand-opt">
+                    <input type="radio" name="dp_toolbox_branding_mode" value="dp" <?php checked( $branding_mode, 'dp' ); ?>>
+                    <div class="dp-brand-card">
+                        <h3>Design Pixels</h3>
+                        <p>Jouw logo en huisstijl, met een link naar designpixels.nl onderaan.</p>
+                        <div class="dp-brand-swatch" style="background: linear-gradient(135deg, #1a1235 0%, #281E5D 40%, #3d2d7a 100%);">
+                            <img src="<?php echo esc_url( DP_TOOLBOX_URL . 'assets/dp-logo.webp' ); ?>" alt="">
+                        </div>
+                    </div>
+                </label>
+            </div>
+
+            <?php if ( 'client' === $branding_mode && ! $branding_logo ) : ?>
+                <p class="dp-brand-warn">
+                    Deze site heeft nog geen logo of site-icoon ingesteld. Zolang dat zo is, tonen de
+                    pagina's de sitenaam als tekst.
+                </p>
+            <?php endif; ?>
+        </div>
 
         <div class="dp-admin-section">
             <h2>Gebruikersrollen</h2>

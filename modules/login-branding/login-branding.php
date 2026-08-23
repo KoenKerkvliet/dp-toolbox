@@ -1,9 +1,9 @@
 <?php
 /**
  * Module Name: Login Branding
- * Description: Past de WordPress-loginpagina aan met Design Pixels huisstijl.
+ * Description: Geeft de WordPress-loginpagina een eigen uiterlijk, met het logo van de site of van Design Pixels.
  * Category: appearance
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -14,15 +14,19 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Custom CSS on the login page.
  */
 add_action( 'login_enqueue_scripts', function () {
-    $logo_url = DP_TOOLBOX_URL . 'assets/dp-logo.webp';
+    $logo_url     = dp_toolbox_branding_logo_url();
+    $accent       = dp_toolbox_branding_color( 'accent' );
+    $accent_hover = dp_toolbox_branding_color( 'accent_hover' );
+    $gradient     = dp_toolbox_branding_color( 'gradient' );
     ?>
     <style>
         /* Background */
         body.login {
-            background: linear-gradient(135deg, #1a1235 0%, #281E5D 40%, #3d2d7a 100%) !important;
+            background: <?php echo esc_attr( $gradient ); ?> !important;
         }
 
-        /* Logo */
+        /* Logo — of de sitenaam als tekst wanneer er geen logo is */
+        <?php if ( $logo_url ) : ?>
         .login h1 a {
             background-image: url('<?php echo esc_url( $logo_url ); ?>') !important;
             background-size: contain !important;
@@ -32,6 +36,21 @@ add_action( 'login_enqueue_scripts', function () {
             height: 80px !important;
             margin-bottom: 20px !important;
         }
+        <?php else : ?>
+        .login h1 a {
+            background-image: none !important;
+            width: auto !important;
+            height: auto !important;
+            text-indent: 0 !important;
+            overflow: visible !important;
+            font-size: 20px !important;
+            font-weight: 600 !important;
+            line-height: 1.3 !important;
+            color: #fff !important;
+            text-decoration: none !important;
+            margin-bottom: 20px !important;
+        }
+        <?php endif; ?>
 
         /* Form container */
         .login form {
@@ -61,14 +80,14 @@ add_action( 'login_enqueue_scripts', function () {
         }
         .login form input[type="text"]:focus,
         .login form input[type="password"]:focus {
-            border-color: #281E5D !important;
-            box-shadow: 0 0 0 2px rgba(40, 30, 93, 0.15) !important;
+            border-color: <?php echo esc_attr( $accent ); ?> !important;
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.12) !important;
         }
 
         /* Submit button */
         .login form .submit input[type="submit"],
         .wp-core-ui .button-primary {
-            background: #281E5D !important;
+            background: <?php echo esc_attr( $accent ); ?> !important;
             border: none !important;
             border-radius: 6px !important;
             padding: 8px 24px !important;
@@ -77,13 +96,13 @@ add_action( 'login_enqueue_scripts', function () {
             height: auto !important;
             line-height: 1.5 !important;
             text-shadow: none !important;
-            box-shadow: 0 2px 8px rgba(40, 30, 93, 0.3) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18) !important;
             transition: background 0.2s !important;
             width: 100% !important;
         }
         .login form .submit input[type="submit"]:hover,
         .wp-core-ui .button-primary:hover {
-            background: #4a3a8a !important;
+            background: <?php echo esc_attr( $accent_hover ); ?> !important;
         }
 
         /* Links */
@@ -100,7 +119,7 @@ add_action( 'login_enqueue_scripts', function () {
         /* Error / messages */
         .login .message,
         .login .success {
-            border-left-color: #281E5D !important;
+            border-left-color: <?php echo esc_attr( $accent ); ?> !important;
             border-radius: 6px !important;
         }
 

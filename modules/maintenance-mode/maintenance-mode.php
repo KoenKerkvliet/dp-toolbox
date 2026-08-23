@@ -3,7 +3,7 @@
  * Module Name: Maintenance Mode
  * Description: Toon een onderhoudspagina aan bezoekers terwijl je aan de site werkt.
  * Category: security
- * Version: 1.1.0
+ * Version: 1.2.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -90,7 +90,9 @@ add_action( 'template_redirect', function () {
     do_action( 'litespeed_control_set_nocache', 'DP Toolbox onderhoudsmodus' );
 
     $site_name = get_bloginfo( 'name' );
-    $logo_url  = DP_TOOLBOX_URL . 'assets/dp-logo.webp';
+    $logo_url  = dp_toolbox_branding_logo_url();
+    $credit    = dp_toolbox_branding_credit_html();
+    $gradient  = dp_toolbox_branding_color( 'gradient' );
 
     nocache_headers();
     header( 'HTTP/1.1 503 Service Temporarily Unavailable' );
@@ -107,12 +109,14 @@ add_action( 'template_redirect', function () {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             min-height: 100vh; display: flex; align-items: center; justify-content: center;
-            background: linear-gradient(135deg, #1a1235 0%, #281E5D 40%, #3d2d7a 100%);
+            background: <?php echo esc_attr( $gradient ); ?>;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             color: #fff; padding: 24px;
         }
         .box { text-align: center; max-width: 520px; }
-        .logo { height: 50px; margin-bottom: 32px; opacity: 0.9; }
+        .logo { height: 50px; max-width: 240px; object-fit: contain; margin-bottom: 32px; opacity: 0.9; }
+        .sitename { font-size: 15px; font-weight: 600; letter-spacing: 0.04em;
+            text-transform: uppercase; opacity: 0.65; margin-bottom: 28px; }
         .icon { font-size: 48px; margin-bottom: 20px; }
         h1 { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
         p { font-size: 16px; line-height: 1.6; opacity: 0.8; }
@@ -122,11 +126,17 @@ add_action( 'template_redirect', function () {
 </head>
 <body>
     <div class="box">
-        <img src="<?php echo esc_url( $logo_url ); ?>" alt="" class="logo">
+        <?php if ( $logo_url ) : ?>
+            <img src="<?php echo esc_url( $logo_url ); ?>" alt="<?php echo esc_attr( $site_name ); ?>" class="logo">
+        <?php else : ?>
+            <div class="sitename"><?php echo esc_html( $site_name ); ?></div>
+        <?php endif; ?>
         <div class="icon">&#128295;</div>
         <h1>Even geduld...</h1>
         <p>We werken aan verbeteringen. De site is binnenkort weer beschikbaar.</p>
-        <div class="foot"><a href="https://designpixels.nl" target="_blank" rel="noopener">Design Pixels</a></div>
+        <?php if ( $credit ) : ?>
+            <div class="foot"><?php echo $credit; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
+        <?php endif; ?>
     </div>
 </body>
 </html>
