@@ -3,7 +3,7 @@
  * Module Name: Maintenance Mode
  * Description: Toon een onderhoudspagina aan bezoekers terwijl je aan de site werkt.
  * Category: security
- * Version: 1.2.0
+ * Version: 1.3.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -97,6 +97,14 @@ add_action( 'template_redirect', function () {
     nocache_headers();
     header( 'HTTP/1.1 503 Service Temporarily Unavailable' );
     header( 'Retry-After: 3600' );
+
+    /*
+     * Een 503 is precies goed voor zoekmachines — tijdelijk weg, kom terug —
+     * maar een uptime-monitor leest 'm terecht als "site offline". Deze header
+     * laat een monitor het verschil zien tussen onderhoud en een storing, zodat
+     * een geplande onderhoudsbeurt niet als downtime in een klantrapport belandt.
+     */
+    header( 'X-DP-Maintenance: 1' );
     ?>
 <!DOCTYPE html>
 <html lang="nl">
