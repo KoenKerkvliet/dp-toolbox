@@ -24,13 +24,6 @@ function dp_toolbox_ie_get_categories() {
                 'dp_toolbox_enabled_modules',
             ],
         ],
-        'access' => [
-            'label' => 'Toegang',
-            'desc'  => 'Toegestane gebruikersrollen voor DP Toolbox. Geblokkeerde admins zijn site-specifiek en worden NIET meegenomen.',
-            'options' => [
-                'dp_toolbox_allowed_roles',
-            ],
-        ],
         'dashboard' => [
             'label' => 'Dashboard Widgets',
             'desc'  => 'Welke widget-secties aan staan, tutorials en visitekaartje. API-key wordt NIET meegenomen.',
@@ -91,7 +84,6 @@ function dp_toolbox_ie_get_excluded_options() {
         // Site-specifiek
         'dp_toolbox_login_slug',
         'dp_toolbox_maintenance_enabled',
-        'dp_toolbox_blocked_users',
         // Runtime state
         'dp_toolbox_dashboard_migrated',
         'dp_toolbox_rm_all_menus',

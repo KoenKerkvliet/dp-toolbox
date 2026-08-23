@@ -11,17 +11,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 /*  Access control helpers                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Wie mag DP Toolbox zien en gebruiken?
+ *
+ * Uitsluitend ingelogde gebruikers met een @designpixels.nl-adres. Bewust geen
+ * instelling per rol of per gebruiker: dat is een deur die per ongeluk open kan
+ * blijven staan. Andere beheerders zien het menu niet en zien de plugin niet op
+ * de plugin-pagina; de modules blijven voor hen wel gewoon werken.
+ */
 function dp_toolbox_current_user_has_access() {
     $user = wp_get_current_user();
     if ( ! $user || ! $user->ID ) return false;
 
-    // Plugin is alleen zichtbaar voor @designpixels.nl users.
-    if ( ! dp_toolbox_is_dp_user( $user->ID ) ) return false;
-
-    // DP-staff (@designpixels.nl) heeft ALTIJD toegang — bypass role + block checks.
-    // Voorkomt lock-out wanneer per ongeluk 'administrator' uit allowed_roles wordt
-    // verwijderd of een DP-user in blocked_users belandt.
-    return true;
+    return dp_toolbox_is_dp_user( $user->ID );
 }
 
 /* ------------------------------------------------------------------ */
@@ -36,20 +38,6 @@ add_action( 'admin_init', function () {
             // Harde gate: een module met een onvervulde vereiste kan nooit
             // aangezet worden, ook niet door een geknutselde POST.
             return array_values( array_filter( $input, 'dp_toolbox_module_requirement_met' ) );
-        },
-        'default' => [],
-    ] );
-    register_setting( 'dp_toolbox_admin_settings', 'dp_toolbox_allowed_roles', [
-        'type'              => 'array',
-        'sanitize_callback' => function ( $input ) {
-            return is_array( $input ) ? array_map( 'sanitize_key', $input ) : [ 'administrator' ];
-        },
-        'default' => [ 'administrator' ],
-    ] );
-    register_setting( 'dp_toolbox_admin_settings', 'dp_toolbox_blocked_users', [
-        'type'              => 'array',
-        'sanitize_callback' => function ( $input ) {
-            return is_array( $input ) ? array_map( 'absint', $input ) : [];
         },
         'default' => [],
     ] );
@@ -201,44 +189,12 @@ function dp_toolbox_settings_page() {
             .dp-toggle input:checked + label::after { transform: translateX(20px); }
 
             /* Admin settings */
-            .dp-admin-section { margin-bottom: 24px; }
+            .dp-admin-section { margin-bottom: 32px; }
             .dp-admin-section h2 {
                 font-size: 15px; font-weight: 700; color: #1d2327;
                 margin: 0 0 6px; padding-bottom: 8px; border-bottom: 2px solid #281E5D;
             }
             .dp-admin-section p.desc { margin: 0 0 12px; font-size: 13px; color: #666; }
-
-            .dp-role-grid, .dp-user-grid {
-                display: flex; flex-direction: column; gap: 6px;
-            }
-            .dp-role-card, .dp-user-card {
-                background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
-                padding: 12px 18px; display: flex; align-items: center; gap: 14px;
-                transition: border-color 0.2s;
-            }
-            .dp-role-card:hover, .dp-user-card:hover {
-                border-color: #281E5D; box-shadow: 0 1px 6px rgba(40,30,93,0.06);
-            }
-            .dp-role-card.is-allowed  { border-left: 4px solid #281E5D; }
-            .dp-user-card.is-blocked  { border-left: 4px solid #d63638; opacity: 0.6; }
-            .dp-user-card.is-blocked:hover { opacity: 1; }
-
-            .dp-role-label, .dp-user-label { flex: 1; font-size: 13px; font-weight: 500; color: #1d2327; }
-            .dp-role-slug  { font-size: 11px; color: #999; }
-            .dp-user-email { font-size: 12px; color: #999; margin-left: 8px; font-weight: 400; }
-
-            .dp-user-badge {
-                font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
-                padding: 3px 8px; border-radius: 4px;
-            }
-            .dp-user-badge.allowed  { color: #281E5D; background: #eee8ff; }
-            .dp-user-badge.blocked  { color: #d63638; background: #fce9e9; }
-
-            /* Block toggle: green = access, red = blocked */
-            .dp-block-toggle label { background: #00a32a; }
-            .dp-block-toggle label::after { transform: translateX(20px); }
-            .dp-block-toggle input:checked + label { background: #d63638; }
-            .dp-block-toggle input:checked + label::after { transform: translateX(0); }
 
             /* Buttons */
             .dp-toolbox-settings .submit { margin-top: 8px; }
@@ -846,17 +802,6 @@ function dp_toolbox_render_modules_tab() {
 /* ------------------------------------------------------------------ */
 
 function dp_toolbox_render_admin_tab() {
-    $allowed_roles = (array) get_option( 'dp_toolbox_allowed_roles', [ 'administrator' ] );
-    $blocked_users = array_map( 'strval', (array) get_option( 'dp_toolbox_blocked_users', [] ) );
-    $all_roles     = wp_roles()->roles;
-
-    // Get all admin users (users who have any of the allowed roles).
-    // DP-staff (@designpixels.nl) wordt eruit gefilterd — die hebben altijd toegang
-    // en zijn niet blokkeerbaar via de UI.
-    $admin_users = get_users( [ 'role__in' => [ 'administrator' ], 'orderby' => 'display_name' ] );
-    $admin_users = array_values( array_filter( $admin_users, function ( $u ) {
-        return ! dp_toolbox_is_dp_user( $u->ID );
-    } ) );
     ?>
     <form method="post" action="options.php">
         <?php settings_fields( 'dp_toolbox_admin_settings' ); ?>
@@ -871,11 +816,13 @@ function dp_toolbox_render_admin_tab() {
 
             <style>
                 .dp-brand-grid { display: flex; gap: 12px; flex-wrap: wrap; }
-                .dp-brand-opt { flex: 1; min-width: 240px; cursor: pointer; }
+                .dp-brand-opt { flex: 1; min-width: 240px; cursor: pointer; display: flex; }
                 .dp-brand-opt input { position: absolute; opacity: 0; pointer-events: none; }
                 .dp-brand-card {
                     background: #fff; border: 2px solid #e0e0e0; border-radius: 8px;
-                    padding: 16px 18px; transition: border-color 0.2s, box-shadow 0.2s; height: 100%;
+                    /* flex i.p.v. height:100% — dat laatste puilde uit de sectie en
+                       liet de volgende kop eroverheen lopen. */
+                    padding: 16px 18px; transition: border-color 0.2s, box-shadow 0.2s; flex: 1;
                 }
                 .dp-brand-opt input:checked + .dp-brand-card {
                     border-color: #281E5D; box-shadow: 0 2px 10px rgba(40,30,93,0.12);
@@ -932,67 +879,13 @@ function dp_toolbox_render_admin_tab() {
         </div>
 
         <div class="dp-admin-section">
-            <h2>Gebruikersrollen</h2>
-            <p class="desc">Selecteer welke rollen DP Toolbox mogen zien en gebruiken.</p>
-            <div class="dp-role-grid">
-                <?php foreach ( $all_roles as $role_slug => $role ) :
-                    $is_allowed = in_array( $role_slug, $allowed_roles, true );
-                ?>
-                    <div class="dp-role-card <?php echo $is_allowed ? 'is-allowed' : ''; ?>">
-                        <div class="dp-toggle">
-                            <input type="checkbox"
-                                   id="dp-role-<?php echo esc_attr( $role_slug ); ?>"
-                                   name="dp_toolbox_allowed_roles[]"
-                                   value="<?php echo esc_attr( $role_slug ); ?>"
-                                   <?php checked( $is_allowed ); ?>>
-                            <label for="dp-role-<?php echo esc_attr( $role_slug ); ?>"></label>
-                        </div>
-                        <span class="dp-role-label">
-                            <?php echo esc_html( translate_user_role( $role['name'] ) ); ?>
-                            <span class="dp-role-slug">(<?php echo esc_html( $role_slug ); ?>)</span>
-                        </span>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
-        <div class="dp-admin-section">
-            <h2>Administrators</h2>
-            <p class="desc">Blokkeer specifieke administrators. Geblokkeerde admins zien DP Toolbox niet, ook als hun rol toegang heeft. Design Pixels-staff (@designpixels.nl) heeft altijd toegang en wordt hier niet getoond.</p>
-            <div class="dp-user-grid">
-                <?php if ( empty( $admin_users ) ) : ?>
-                    <p style="color:#999;font-size:13px;">Geen administrators gevonden.</p>
-                <?php else : ?>
-                    <?php foreach ( $admin_users as $user ) :
-                        $is_blocked = in_array( (string) $user->ID, $blocked_users, true );
-                        $is_current = ( $user->ID === get_current_user_id() );
-                    ?>
-                        <div class="dp-user-card <?php echo $is_blocked ? 'is-blocked' : ''; ?>">
-                            <div class="dp-toggle dp-block-toggle">
-                                <input type="checkbox"
-                                       id="dp-user-<?php echo esc_attr( $user->ID ); ?>"
-                                       name="dp_toolbox_blocked_users[]"
-                                       value="<?php echo esc_attr( $user->ID ); ?>"
-                                       <?php checked( $is_blocked ); ?>
-                                       <?php echo $is_current ? 'disabled' : ''; ?>>
-                                <label for="dp-user-<?php echo esc_attr( $user->ID ); ?>"
-                                       <?php echo $is_current ? 'title="Je kunt jezelf niet blokkeren"' : ''; ?>></label>
-                            </div>
-                            <span class="dp-user-label">
-                                <?php echo esc_html( $user->display_name ); ?>
-                                <span class="dp-user-email"><?php echo esc_html( $user->user_email ); ?></span>
-                            </span>
-                            <?php if ( $is_current ) : ?>
-                                <span class="dp-user-badge allowed">Jij</span>
-                            <?php elseif ( $is_blocked ) : ?>
-                                <span class="dp-user-badge blocked">Geblokkeerd</span>
-                            <?php else : ?>
-                                <span class="dp-user-badge allowed">Toegang</span>
-                            <?php endif; ?>
-                        </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
+            <h2>Toegang</h2>
+            <p class="desc">
+                DP Toolbox is alleen zichtbaar voor ingelogde gebruikers met een
+                <strong>@designpixels.nl</strong>-adres. Andere beheerders zien het menu niet,
+                en zien de plugin ook niet staan op de plugin-pagina. De modules blijven voor
+                hen wel gewoon werken. Hier valt niets in te stellen: dit zit vast in de plugin.
+            </p>
         </div>
 
         <?php submit_button( 'Opslaan' ); ?>
