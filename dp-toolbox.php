@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DP Toolbox
  * Description: Design Pixels gereedschapskist — modulaire verzameling van site-tools.
- * Version: 2.47.1
+ * Version: 2.48.0
  * Author: Design Pixels
  * Text Domain: dp-toolbox
  * GitHub Plugin URI: KoenKerkvliet/dp-toolbox
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DP_TOOLBOX_VERSION', '2.47.1' );
+define( 'DP_TOOLBOX_VERSION', '2.48.0' );
 define( 'DP_TOOLBOX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DP_TOOLBOX_URL', plugin_dir_url( __FILE__ ) );
 
@@ -244,6 +244,22 @@ function dp_toolbox_etch_is_available() {
 }
 
 /**
+ * Draait deze site op Bricks?
+ *
+ * Bricks is een thema, dus we kijken naar `template` — dat dekt ook een
+ * child-thema als `bricks-child`. Constanten als `BRICKS_VERSION` zijn hier nog
+ * niet beschikbaar: dit draait op plugins_loaded, vóór het thema geladen is.
+ */
+function dp_toolbox_bricks_is_available() {
+    static $cached = null;
+    if ( null !== $cached ) {
+        return $cached;
+    }
+
+    return $cached = in_array( 'bricks', [ get_option( 'template' ), get_option( 'stylesheet' ) ], true );
+}
+
+/**
  * Is All-In-One Security actief op deze site?
  */
 function dp_toolbox_aios_is_available() {
@@ -272,6 +288,15 @@ function dp_toolbox_aios_is_available() {
  */
 function dp_toolbox_get_module_requirements() {
     $reqs = [];
+
+    if ( ! dp_toolbox_bricks_is_available() ) {
+        $reqs['site-navigator'] = [
+            'met'    => false,
+            'reason' => dp_toolbox_etch_is_available()
+                ? 'Vereist Bricks. Deze site draait op Etch — de snelnavigatie wijst naar schermen die hier niet bestaan.'
+                : 'Vereist het Bricks-thema. Niet gevonden op deze site.',
+        ];
+    }
 
     if ( ! dp_toolbox_aios_is_available() ) {
         $reqs['lockout-notices'] = [

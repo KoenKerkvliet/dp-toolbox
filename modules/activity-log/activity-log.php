@@ -3,7 +3,7 @@
  * Module Name: Activity Log
  * Description: Houd bij wie wat doet op de site — logins, content, gebruikers, plugins en instellingen.
  * Category: dashboard
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -105,11 +105,40 @@ add_action( 'wp_logout', function ( $user_id ) {
     ] );
 } );
 
+/**
+ * Bestaat er een account met deze gebruikersnaam of dit e-mailadres?
+ *
+ * Zelfde afweging als AIOS maakt bij een uitsluiting: eerst op e-mailadres
+ * kijken, anders op gebruikersnaam. Een lid dat met zijn e-mailadres inlogt
+ * wordt zo herkend als bestaande gebruiker.
+ */
+function dp_toolbox_al_account_bestaat( $username ) {
+    $username = (string) $username;
+    if ( '' === $username ) {
+        return false;
+    }
+
+    return (bool) ( is_email( $username )
+        ? get_user_by( 'email', $username )
+        : get_user_by( 'login', $username ) );
+}
+
 add_action( 'wp_login_failed', function ( $username ) {
+    /*
+     * Bots rammen de hele dag op namen die hier niet bestaan — `admin`, `abedia`,
+     * en wat ze verder maar proberen. Die loggen levert niets op en verdringt wél
+     * de paar regels die er echt toe doen: een lid dat zijn eigen wachtwoord mist.
+     * Daarom alleen mislukte pogingen op een bestaand account.
+     */
+    if ( ! dp_toolbox_al_account_bestaat( $username )
+        && ! apply_filters( 'dp_toolbox_al_log_onbekende_logins', false, $username ) ) {
+        return;
+    }
+
     dp_toolbox_al_log( 'auth', 'Mislukte login', [
         'object_type' => 'user',
         'object_name' => $username,
-        'details'     => 'Onbekende gebruiker of fout wachtwoord',
+        'details'     => 'Bestaand account, fout wachtwoord',
     ] );
 } );
 
