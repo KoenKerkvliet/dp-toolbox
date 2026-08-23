@@ -3,7 +3,7 @@
  * Module Name: Magic Login
  * Description: Laat leden inloggen via een eenmalige link per e-mail, zonder wachtwoord. Beheerders blijven op wachtwoord.
  * Category: security
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -108,6 +108,44 @@ function dp_toolbox_ml_rate_limited( $bucket, $limit, $window = HOUR_IN_SECONDS 
     return false;
 }
 
+/**
+ * Komt deze POST van de site zelf?
+ *
+ * Zonder deze controle kan een willekeurige externe pagina de browsers van
+ * nietsvermoedende bezoekers laten posten naar dit formulier. Dat levert een
+ * aanvaller niets op — de link gaat naar de mailbox van de eigenaar — maar het
+ * verspreidt een mailbombardement wel over honderden IP-adressen, en juist
+ * daarop rust onze limiet.
+ *
+ * Ontbreken beide headers (oude browser, privacy-extensie), dan laten we het
+ * door: honeypot en snelheidslimiet vangen dat geval nog steeds af.
+ */
+function dp_toolbox_ml_same_origin() {
+    $host = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+
+    foreach ( [ 'HTTP_ORIGIN', 'HTTP_REFERER' ] as $key ) {
+        if ( empty( $_SERVER[ $key ] ) ) {
+            continue;
+        }
+        $candidate = strtolower( (string) wp_parse_url( wp_unslash( $_SERVER[ $key ] ), PHP_URL_HOST ) );
+        return $candidate === $host;
+    }
+
+    return true;
+}
+
+/**
+ * Sluit de verbinding met de browser af, zodat trage nazorg (het versturen van
+ * de mail) de bezoeker niet laat wachten.
+ */
+function dp_toolbox_ml_close_connection() {
+    if ( function_exists( 'litespeed_finish_request' ) ) {
+        litespeed_finish_request();
+    } elseif ( function_exists( 'fastcgi_finish_request' ) ) {
+        fastcgi_finish_request();
+    }
+}
+
 function dp_toolbox_ml_log( $action, $args = [] ) {
     if ( function_exists( 'dp_toolbox_al_log' ) ) {
         dp_toolbox_al_log( 'login', $action, $args );
@@ -182,7 +220,16 @@ function dp_toolbox_ml_handle_request( $email, $redirect_to = '' ) {
         'uid'            => $user->ID,
     ], home_url( '/' ) );
 
-    dp_toolbox_ml_send_mail( $user, $url, $ttl );
+    /*
+     * Pas versturen nadat het antwoord de deur uit is. Anders duurt een
+     * aanvraag voor een bestaand account meetbaar langer dan een voor een
+     * onbekend adres — de SMTP-ronde zit ertussen — en dat verschil verklapt
+     * alsnog wie er lid is. Het formulier voelt er meteen ook sneller door.
+     */
+    add_action( 'shutdown', function () use ( $user, $url, $ttl ) {
+        dp_toolbox_ml_close_connection();
+        dp_toolbox_ml_send_mail( $user, $url, $ttl );
+    }, 1 );
 
     dp_toolbox_ml_log( 'Inloglink aangevraagd', [
         'object_type' => 'user',
@@ -309,7 +356,8 @@ add_action( 'init', function () {
     if ( isset( $_POST['dp_ml_action'] ) && 'request' === $_POST['dp_ml_action'] ) {
 
         // Honeypot: bots vullen ieder veld in, mensen zien dit niet.
-        if ( ! empty( $_POST['dp_ml_website'] ) ) {
+        // Kruislings geposte formulieren gaan om dezelfde reden stil de prullenbak in.
+        if ( ! empty( $_POST['dp_ml_website'] ) || ! dp_toolbox_ml_same_origin() ) {
             wp_safe_redirect( dp_toolbox_ml_back_url( 'sent' ) );
             exit;
         }
@@ -429,7 +477,7 @@ function dp_toolbox_ml_notice_html() {
     $status = sanitize_key( wp_unslash( $_GET['dp-ml'] ) );
 
     if ( 'sent' === $status ) {
-        return '<p class="dp-ml-notice dp-ml-notice--ok">Is dit adres bij ons bekend? Dan staat er nu een inloglink in je mailbox. Kijk ook even in je ongewenste mail.</p>';
+        return '<p class="dp-ml-notice dp-ml-notice--ok">Is dit adres bij ons bekend? Dan staat er nu een inloglink in je mailbox. Kijk ook even bij ongewenste mail.</p>';
     }
 
     if ( 'throttled' === $status ) {
@@ -439,54 +487,102 @@ function dp_toolbox_ml_notice_html() {
     return '';
 }
 
-function dp_toolbox_ml_form_html( $redirect_to = '' ) {
-    $action = home_url( '/' );
-
+/**
+ * De inhoud van het blok: melding, uitleg en het formulier zelf.
+ */
+function dp_toolbox_ml_panel_html( $redirect_to = '' ) {
     ob_start();
     ?>
-    <div class="dp-ml">
-        <?php echo dp_toolbox_ml_notice_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-        <form class="dp-ml-form" method="post" action="<?php echo esc_url( $action ); ?>">
-            <input type="hidden" name="dp_ml_action" value="request">
-            <input type="hidden" name="dp_ml_return" value="<?php echo esc_attr( dp_toolbox_ml_current_url() ); ?>">
-            <?php if ( $redirect_to ) : ?>
-                <input type="hidden" name="dp_ml_redirect" value="<?php echo esc_attr( $redirect_to ); ?>">
-            <?php endif; ?>
+    <?php echo dp_toolbox_ml_notice_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+    <p class="dp-ml-help">Vul je e-mailadres in, dan sturen we je een link waarmee je direct binnen bent. Geen wachtwoord nodig.</p>
 
-            <label class="dp-ml-label" for="dp-ml-email">Inloggen zonder wachtwoord</label>
-            <p class="dp-ml-help">Vul je e-mailadres in, dan sturen we je een link waarmee je direct binnen bent.</p>
+    <form class="dp-ml-form" method="post" action="<?php echo esc_url( home_url( '/' ) ); ?>">
+        <input type="hidden" name="dp_ml_action" value="request">
+        <input type="hidden" name="dp_ml_return" value="<?php echo esc_attr( dp_toolbox_ml_current_url() ); ?>">
+        <?php if ( $redirect_to ) : ?>
+            <input type="hidden" name="dp_ml_redirect" value="<?php echo esc_attr( $redirect_to ); ?>">
+        <?php endif; ?>
 
-            <input class="dp-ml-input" type="email" id="dp-ml-email" name="dp_ml_email"
-                   autocomplete="email" required placeholder="jouw@email.nl">
+        <label class="dp-ml-srlabel" for="dp-ml-email">E-mailadres</label>
+        <input class="dp-ml-input" type="email" id="dp-ml-email" name="dp_ml_email"
+               autocomplete="email" required placeholder="jouw@email.nl">
 
-            <div class="dp-ml-hp" aria-hidden="true">
-                <label>Laat dit veld leeg
-                    <input type="text" name="dp_ml_website" tabindex="-1" autocomplete="off">
-                </label>
-            </div>
+        <div class="dp-ml-hp" aria-hidden="true">
+            <label>Laat dit veld leeg
+                <input type="text" name="dp_ml_website" tabindex="-1" autocomplete="off">
+            </label>
+        </div>
 
-            <button type="submit" class="dp-ml-btn">Stuur mij een inloglink</button>
-        </form>
-    </div>
+        <button type="submit" class="dp-ml-btn">Stuur mij een inloglink</button>
+    </form>
     <?php
     return ob_get_clean();
 }
 
+/**
+ * @param string $redirect_to Waar de gebruiker na het inloggen heen moet.
+ * @param bool   $collapsible Ingeklapt achter een regel. Zo gebruiken we het op de
+ *                            inlogpagina: het wachtwoordformulier blijft de hoofdroute,
+ *                            de inloglink staat er rustig onder.
+ */
+function dp_toolbox_ml_form_html( $redirect_to = '', $collapsible = false ) {
+    $panel  = dp_toolbox_ml_panel_html( $redirect_to );
+    $notice = dp_toolbox_ml_notice_html();
+
+    if ( $collapsible ) {
+        // Na een aanvraag standaard open, anders mist de bezoeker de bevestiging.
+        return '<div class="dp-ml"><details class="dp-ml-box"' . ( $notice ? ' open' : '' ) . '>'
+            . '<summary class="dp-ml-summary">Inloggen met een inloglink</summary>'
+            . '<div class="dp-ml-panel">' . $panel . '</div>'
+            . '</details></div>';
+    }
+
+    return '<div class="dp-ml"><div class="dp-ml-box dp-ml-box--plain"><div class="dp-ml-panel">'
+        . '<p class="dp-ml-title">Inloggen zonder wachtwoord</p>' . $panel
+        . '</div></div></div>';
+}
+
 function dp_toolbox_ml_styles() {
+    $accent = function_exists( 'dp_toolbox_branding_color' ) ? dp_toolbox_branding_color( 'accent' ) : '#281E5D';
+    $hover  = function_exists( 'dp_toolbox_branding_color' ) ? dp_toolbox_branding_color( 'accent_hover' ) : '#4a3a8a';
+
     return '
-    .dp-ml { max-width: 360px; margin: 0 auto; }
-    .dp-ml-form { background: #fff; border: 1px solid #dcdcde; border-radius: 10px; padding: 22px 24px; text-align: left; }
-    .dp-ml-label { display: block; font-weight: 600; font-size: 15px; margin-bottom: 4px; color: #1d2327; }
+    .dp-ml { width: 100%; margin: 16px auto 0; text-align: left; }
+    .dp-ml-box { background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); overflow: hidden; }
+    .dp-ml-summary {
+        list-style: none; cursor: pointer; -webkit-user-select: none; user-select: none;
+        display: flex; align-items: center; gap: 8px;
+        padding: 15px 24px; font-size: 14px; font-weight: 600; color: ' . $accent . ';
+    }
+    .dp-ml-summary::-webkit-details-marker { display: none; }
+    .dp-ml-summary::after {
+        content: ""; margin-left: auto; width: 7px; height: 7px;
+        border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+        transform: rotate(45deg) translateY(-2px); transition: transform .2s;
+    }
+    .dp-ml-box[open] > .dp-ml-summary { padding-bottom: 10px; }
+    .dp-ml-box[open] > .dp-ml-summary::after { transform: rotate(-135deg) translateY(-2px); }
+    .dp-ml-summary:focus-visible { outline: 2px solid ' . $accent . '; outline-offset: -2px; }
+    .dp-ml-panel { padding: 0 24px 22px; }
+    .dp-ml-box--plain .dp-ml-panel { padding-top: 22px; }
+    .dp-ml-title { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: #1d2327; }
     .dp-ml-help { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: #646970; }
-    .dp-ml-input { width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 15px;
-        border: 1px solid #c3c4c7; border-radius: 6px; margin-bottom: 12px; background: #fff; color: #1d2327; }
-    .dp-ml-input:focus { outline: 2px solid #281E5D; outline-offset: 1px; border-color: #281E5D; }
-    .dp-ml-btn { display: block; width: 100%; padding: 11px 16px; font-size: 15px; font-weight: 600;
-        color: #fff; background: #281E5D; border: none; border-radius: 6px; cursor: pointer; }
-    .dp-ml-btn:hover { background: #4a3a8a; }
+    .dp-ml-srlabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .dp-ml-input {
+        width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 15px;
+        border: 1px solid #c3c4c7; border-radius: 6px; margin-bottom: 10px;
+        background: #fff; color: #1d2327; line-height: 1.4;
+    }
+    .dp-ml-input:focus { outline: none; border-color: ' . $accent . '; box-shadow: 0 0 0 2px rgba(0,0,0,0.10); }
+    .dp-ml-btn {
+        display: block; width: 100%; padding: 11px 16px; font-size: 14px; font-weight: 600;
+        color: #fff; background: ' . $accent . '; border: none; border-radius: 6px; cursor: pointer;
+        transition: background .2s; line-height: 1.4;
+    }
+    .dp-ml-btn:hover { background: ' . $hover . '; }
     .dp-ml-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
-    .dp-ml-notice { margin: 0 0 14px; padding: 10px 12px; border-radius: 6px; font-size: 13px; line-height: 1.5; }
-    .dp-ml-notice--ok { background: #edfaef; border-left: 3px solid #00a32a; color: #1d2327; }
+    .dp-ml-notice { margin: 0 0 12px; padding: 10px 12px; border-radius: 6px; font-size: 13px; line-height: 1.5; }
+    .dp-ml-notice--ok { background: #f1f6f2; border-left: 3px solid #00a32a; color: #1d2327; }
     .dp-ml-notice--warn { background: #fcf9e8; border-left: 3px solid #dba617; color: #1d2327; }
     .dp-ml-lead { margin: 0 0 16px; font-size: 16px; color: #1d2327; }
     ';
@@ -499,9 +595,11 @@ add_shortcode( 'dp_magic_login', function ( $atts ) {
         return '';
     }
 
-    $atts = shortcode_atts( [ 'redirect' => '' ], $atts, 'dp_magic_login' );
+    $atts        = shortcode_atts( [ 'redirect' => '', 'inklapbaar' => 'nee' ], $atts, 'dp_magic_login' );
+    $collapsible = in_array( strtolower( (string) $atts['inklapbaar'] ), [ 'ja', 'yes', '1', 'true' ], true );
 
-    return '<style>' . dp_toolbox_ml_styles() . '</style>' . dp_toolbox_ml_form_html( $atts['redirect'] );
+    return '<style>' . dp_toolbox_ml_styles() . '</style>'
+        . dp_toolbox_ml_form_html( $atts['redirect'], $collapsible );
 } );
 
 /* ---- Blok op de wp-login pagina ---- */
@@ -510,7 +608,11 @@ add_action( 'login_enqueue_scripts', function () {
     if ( ! dp_toolbox_ml_setting( 'show_on_login' ) ) {
         return;
     }
-    echo '<style>' . dp_toolbox_ml_styles() . ' #login .dp-ml { margin-top: 20px; }</style>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+    // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+    echo '<style>' . dp_toolbox_ml_styles() . '
+    #login .dp-ml { margin: 20px 0 0; }
+    #login .dp-ml-box { box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+    </style>';
 } );
 
 add_action( 'login_footer', function () {
@@ -519,17 +621,17 @@ add_action( 'login_footer', function () {
     }
 
     $redirect = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ) : '';
-
-    $html = dp_toolbox_ml_form_html( $redirect );
+    $html     = dp_toolbox_ml_form_html( $redirect, true );
     ?>
-    <div id="dp-ml-login-block" style="display:none;"><?php echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
+    <div id="dp-ml-login-block" hidden><?php echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
     <script>
     (function () {
         var block = document.getElementById('dp-ml-login-block');
-        var login = document.getElementById('login');
-        if (!block || !login) { return; }
-        block.style.display = '';
-        login.appendChild(block);
+        var form  = document.getElementById('loginform');
+        if (!block || !form || !form.parentNode) { return; }
+        // Direct onder het inlogformulier, niet helemaal onderaan de pagina.
+        form.parentNode.insertBefore(block, form.nextSibling);
+        block.hidden = false;
     })();
     </script>
     <?php
