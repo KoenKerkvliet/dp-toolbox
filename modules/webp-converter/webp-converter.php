@@ -1,9 +1,9 @@
 <?php
 /**
  * Module Name: WebP Converter
- * Description: Converteert afbeeldingen automatisch naar WebP, met bulk-conversie en cleanup.
+ * Description: Converteert afbeeldingen automatisch naar WebP, met bulk-conversie en cleanup. Instelbaar welke tussenformaten WordPress nog aanmaakt.
  * Category: media
- * Version: 1.1.0
+ * Version: 1.2.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -28,11 +28,50 @@ function dp_toolbox_get_max_width() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Limit intermediate image sizes to thumbnail only                   */
+/*  Welke tussenformaten mag WordPress aanmaken?                       */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Drie standen, met 'thumbnail' als standaard omdat deze module dat altijd al
+ * deed — bestaande sites veranderen dus niet stilzwijgend van gedrag.
+ *
+ * thumbnail  Alleen de thumbnail. Scheelt schijfruimte en conversietijd, en is
+ *            prima voor een brochuresite waar afbeeldingen op ware grootte staan.
+ * webshop    Thumbnail plus medium, medium_large en large. Nodig zodra een
+ *            template kleine afbeeldingen toont: zonder tussenformaten kan er
+ *            geen srcset opgebouwd worden en haalt een productkaartje van 300px
+ *            het volledige origineel binnen.
+ * alles      Niets uitschakelen; elk formaat dat het thema of een plugin
+ *            registreert wordt aangemaakt.
+ */
+function dp_toolbox_webp_sizes_mode() {
+    $mode = (string) get_option( 'dp_toolbox_webp_sizes_mode', 'thumbnail' );
+
+    return in_array( $mode, [ 'thumbnail', 'webshop', 'alles' ], true ) ? $mode : 'thumbnail';
+}
+
+function dp_toolbox_webp_sizes_labels() {
+    return [
+        'thumbnail' => 'Alleen thumbnail',
+        'webshop'   => 'Thumbnail + medium, medium_large en large',
+        'alles'     => 'Alles laten staan',
+    ];
+}
+
 add_filter( 'intermediate_image_sizes_advanced', function ( $sizes ) {
-    return [ 'thumbnail' => $sizes['thumbnail'] ];
+    $mode = dp_toolbox_webp_sizes_mode();
+
+    if ( $mode === 'alles' ) {
+        return $sizes;
+    }
+
+    $houden = $mode === 'webshop'
+        ? [ 'thumbnail', 'medium', 'medium_large', 'large' ]
+        : [ 'thumbnail' ];
+
+    // array_intersect_key en niet $sizes['thumbnail'] rechtstreeks: een site die
+    // een formaat heeft afgemeld leverde anders een notice en een lege maat.
+    return array_intersect_key( $sizes, array_flip( $houden ) );
 } );
 
 add_action( 'admin_init', function () {
@@ -451,6 +490,31 @@ function dp_toolbox_set_max_width() {
         return true;
     }
     return false;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Helper: set intermediate sizes mode via GET                        */
+/* ------------------------------------------------------------------ */
+
+function dp_toolbox_set_sizes_mode() {
+    if ( ! isset( $_GET['set_sizes_mode'] ) || ! current_user_can( 'manage_options' ) || ! isset( $_GET['sizes_mode'] ) ) {
+        return false;
+    }
+
+    $mode = sanitize_key( wp_unslash( $_GET['sizes_mode'] ) );
+
+    if ( ! array_key_exists( $mode, dp_toolbox_webp_sizes_labels() ) ) {
+        return false;
+    }
+
+    update_option( 'dp_toolbox_webp_sizes_mode', $mode );
+
+    $labels = dp_toolbox_webp_sizes_labels();
+    $log    = get_option( 'dp_toolbox_webp_conversion_log', [] );
+    $log[]  = 'Tussenformaten: ' . $labels[ $mode ];
+    update_option( 'dp_toolbox_webp_conversion_log', array_slice( $log, -100 ) );
+
+    return true;
 }
 
 /* ------------------------------------------------------------------ */

@@ -23,6 +23,9 @@ function dp_toolbox_webp_admin_render_inline() {
     if ( isset( $_GET['set_max_width'] ) && current_user_can( 'manage_options' ) ) {
         dp_toolbox_set_max_width();
     }
+    if ( isset( $_GET['set_sizes_mode'] ) && current_user_can( 'manage_options' ) ) {
+        dp_toolbox_set_sizes_mode();
+    }
     if ( isset( $_GET['cleanup_leftover_originals'] ) && current_user_can( 'manage_options' ) ) {
         dp_toolbox_cleanup_leftover_originals();
     }
@@ -40,9 +43,29 @@ function dp_toolbox_webp_admin_render_inline() {
             <input type="number" id="max-width-input" value="<?php echo esc_attr( dp_toolbox_get_max_width() ); ?>" min="1" style="width:80px;font-size:13px;">
             <button id="set-max-size" class="button" style="font-size:13px;">Instellen</button>
         </div>
+
+        <?php $huidige_modus = dp_toolbox_webp_sizes_mode(); ?>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px;">
+            <label for="sizes-mode-input" style="font-size:13px;">Tussenformaten:</label>
+            <select id="sizes-mode-input" style="font-size:13px;">
+                <?php foreach ( dp_toolbox_webp_sizes_labels() as $waarde => $label ) : ?>
+                    <option value="<?php echo esc_attr( $waarde ); ?>" <?php selected( $huidige_modus, $waarde ); ?>>
+                        <?php echo esc_html( $label ); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <button id="set-sizes-mode" class="button" style="font-size:13px;">Instellen</button>
+        </div>
+        <p style="font-size:12px;color:#777;margin:0 0 16px;max-width:70ch;">
+            Deze module maakte altijd alleen de thumbnail aan. Op een webshop is dat te weinig:
+            zonder tussenformaten kan er geen srcset opgebouwd worden en haalt een productkaartje
+            van 300px het volledige origineel binnen. Na het verruimen bouw je de formaten voor
+            bestaande afbeeldingen op met de knop <em>Opruimen + formaten opnieuw opbouwen</em>.
+        </p>
+
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">
             <button id="start-conversion" class="button button-primary" style="font-size:13px;">Converteer naar WebP</button>
-            <button id="cleanup-originals" class="button" style="font-size:13px;">Alleen hoofd + thumbnail</button>
+            <button id="cleanup-originals" class="button" style="font-size:13px;">Opruimen + formaten opnieuw opbouwen</button>
             <button id="convert-post-images" class="button" style="font-size:13px;">Post-URLs updaten</button>
             <button id="clear-log" class="button" style="font-size:13px;">Log wissen</button>
         </div>
@@ -88,6 +111,10 @@ function dp_toolbox_webp_admin_render_inline() {
         <?php if ( current_user_can( 'manage_options' ) ) : ?>
         document.getElementById('set-max-size').onclick = function(){
             fetch(pageUrl + '&set_max_width=1&max_width=' + document.getElementById('max-width-input').value).then(updateStatus);
+        };
+        document.getElementById('set-sizes-mode').onclick = function(){
+            fetch(pageUrl + '&set_sizes_mode=1&sizes_mode=' + encodeURIComponent(document.getElementById('sizes-mode-input').value))
+                .then(updateStatus);
         };
         document.getElementById('start-conversion').onclick = function(){
             fetch(pageUrl + '&convert_existing_images_to_webp=1').then(function(){ updateStatus(); convertNext(0); });
