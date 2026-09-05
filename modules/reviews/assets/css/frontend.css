@@ -1,0 +1,367 @@
+/**
+ * DP Toolbox — Reviews
+ *
+ * Deze module draait op elk thema, dus de opmaak staat op eigen benen. Waar een
+ * site ACSS of eigen tokens heeft, worden die overgenomen via de var()-fallbacks:
+ * --dp-rv-* eerst, dan de gangbare ACSS-namen, dan een neutrale waarde.
+ */
+
+/* De tokens staan op beide wortels: de samenvattingsregel staat los van de
+   sectie, en zou de sterrenkleur anders niet kennen. */
+.dp-rv,
+.dp-rv-mini {
+	--dp-rv-accent: var(--dp-rv-kleur, var(--primary, #8a5a30));
+	--dp-rv-tekst: var(--dp-rv-tekst-kleur, var(--base, #241c16));
+	--dp-rv-lijn: var(--dp-rv-lijn-kleur, rgba(0, 0, 0, .12));
+	--dp-rv-ster: var(--dp-rv-ster-kleur, #e0a94a);
+	--dp-rv-ruimte: var(--dp-rv-gap, 1.5rem);
+}
+
+.dp-rv {
+	color: var(--dp-rv-tekst);
+}
+
+.dp-rv__kop {
+	margin: 0 0 var(--dp-rv-ruimte);
+}
+
+/* ---------- sterren ---------- */
+
+/* Twee lagen tekst over elkaar: de onderste is de lege reeks, de bovenste wordt
+   afgekapt op een percentage. Halve sterren komen er zo vanzelf uit, zonder
+   afbeeldingen of een icoonlettertype. */
+.dp-rv-stars {
+	position: relative;
+	display: inline-block;
+	white-space: nowrap;
+	line-height: 1;
+	font-size: 1em;
+	letter-spacing: .1em;
+}
+
+.dp-rv-stars::before,
+.dp-rv-stars__vol::before {
+	content: "\2605\2605\2605\2605\2605";
+}
+
+.dp-rv-stars::before {
+	color: var(--dp-rv-lijn);
+}
+
+.dp-rv-stars__vol {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline-start: 0;
+	overflow: hidden;
+	color: var(--dp-rv-ster);
+}
+
+/* ---------- samenvatting ---------- */
+
+.dp-rv__samenvatting {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--dp-rv-ruimte) calc(var(--dp-rv-ruimte) * 2);
+	align-items: center;
+	padding-block-end: var(--dp-rv-ruimte);
+	border-block-end: 1px solid var(--dp-rv-lijn);
+	margin-block-end: var(--dp-rv-ruimte);
+}
+
+.dp-rv__cijfer {
+	display: flex;
+	flex-direction: column;
+	gap: .35em;
+	align-items: flex-start;
+}
+
+.dp-rv__gemiddelde {
+	font-size: 2.4em;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.dp-rv__cijfer .dp-rv-stars {
+	font-size: 1.25em;
+}
+
+.dp-rv__aantal {
+	font-size: .875em;
+	opacity: .7;
+}
+
+.dp-rv__verdeling {
+	flex: 1 1 14rem;
+	max-width: 22rem;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.dp-rv__verdeling-rij {
+	display: grid;
+	grid-template-columns: 1.25em 1fr 2.5em;
+	align-items: center;
+	gap: .6em;
+	font-size: .8125em;
+	margin-block-end: .3em;
+}
+
+.dp-rv__verdeling-label {
+	text-align: end;
+	opacity: .7;
+}
+
+.dp-rv__balk {
+	display: block;
+	height: .5em;
+	border-radius: 999px;
+	background: var(--dp-rv-lijn);
+	overflow: hidden;
+}
+
+.dp-rv__balk-vol {
+	display: block;
+	height: 100%;
+	background: var(--dp-rv-ster);
+}
+
+.dp-rv__verdeling-n {
+	opacity: .7;
+}
+
+/* ---------- lijst ---------- */
+
+.dp-rv__lijst {
+	list-style: none;
+	margin: 0 0 var(--dp-rv-ruimte);
+	padding: 0;
+}
+
+.dp-rv__item {
+	padding-block: var(--dp-rv-ruimte);
+	border-block-end: 1px solid var(--dp-rv-lijn);
+}
+
+.dp-rv__item:first-child {
+	padding-block-start: 0;
+}
+
+.dp-rv__item-kop {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: .5em .75em;
+	margin-block-end: .5em;
+}
+
+.dp-rv__item-titel {
+	margin: 0;
+	font-size: 1.05em;
+}
+
+.dp-rv__item-tekst > :first-child { margin-block-start: 0; }
+.dp-rv__item-tekst > :last-child  { margin-block-end: 0; }
+
+.dp-rv__item-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: .5em .75em;
+	margin: .6em 0 0;
+	font-size: .8125em;
+	opacity: .75;
+}
+
+.dp-rv__auteur { font-weight: 600; opacity: 1; }
+
+.dp-rv__badge {
+	display: inline-flex;
+	align-items: center;
+	padding: .15em .5em;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--dp-rv-accent) 12%, transparent);
+	color: var(--dp-rv-accent);
+	font-weight: 600;
+	opacity: 1;
+}
+
+.dp-rv__leeg,
+.dp-rv__gesloten {
+	opacity: .75;
+}
+
+/* ---------- meldingen ---------- */
+
+.dp-rv__melding {
+	padding: .75em 1em;
+	border-radius: .4em;
+	border: 1px solid var(--dp-rv-lijn);
+	margin-block-end: var(--dp-rv-ruimte);
+}
+
+.dp-rv__melding--ok {
+	border-color: color-mix(in srgb, var(--dp-rv-accent) 40%, transparent);
+	background: color-mix(in srgb, var(--dp-rv-accent) 8%, transparent);
+}
+
+.dp-rv__melding--fout {
+	border-color: rgba(190, 60, 50, .5);
+	background: rgba(190, 60, 50, .07);
+}
+
+/* ---------- formulier ---------- */
+
+.dp-rv__form {
+	padding-block-start: var(--dp-rv-ruimte);
+	max-width: 40rem;
+}
+
+.dp-rv__form-kop { margin: 0 0 var(--dp-rv-ruimte); }
+
+.dp-rv__veld { margin: 0 0 1rem; }
+
+.dp-rv__veld label,
+.dp-rv__sterren-veld legend {
+	display: block;
+	margin-block-end: .35em;
+	font-weight: 600;
+	font-size: .9375em;
+}
+
+.dp-rv__veld input[type="text"],
+.dp-rv__veld input[type="email"],
+.dp-rv__veld textarea {
+	width: 100%;
+	padding: .6em .75em;
+	border: 1px solid var(--dp-rv-lijn);
+	border-radius: .35em;
+	background: #fff;
+	color: inherit;
+	font: inherit;
+}
+
+.dp-rv__veld textarea { resize: vertical; }
+
+.dp-rv__rij {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0 1rem;
+}
+
+.dp-rv__hint {
+	display: block;
+	margin-block-start: .3em;
+	font-size: .8125em;
+	font-weight: 400;
+	opacity: .7;
+}
+
+.dp-rv__hint--blok { margin-block-start: .75em; }
+
+.dp-rv__verplicht { color: var(--dp-rv-accent); }
+
+.dp-rv__sterren-veld {
+	border: 0;
+	padding: 0;
+	margin: 0 0 1rem;
+}
+
+/* De radio's staan van 5 naar 1 in de HTML, zodat `:checked ~ label` de lagere
+   sterren kan kleuren. row-reverse zet ze visueel weer van 1 naar 5. */
+.dp-rv__sterren-keuze {
+	display: inline-flex;
+	flex-direction: row-reverse;
+	justify-content: flex-end;
+	gap: .1em;
+	font-size: 1.6em;
+	line-height: 1;
+}
+
+.dp-rv__sterren-keuze input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.dp-rv__sterren-keuze label {
+	margin: 0;
+	cursor: pointer;
+	color: var(--dp-rv-lijn);
+	transition: color .12s ease;
+}
+
+.dp-rv__sterren-keuze label::before { content: "\2605"; }
+
+.dp-rv__sterren-keuze label:hover,
+.dp-rv__sterren-keuze label:hover ~ label,
+.dp-rv__sterren-keuze input:checked ~ label {
+	color: var(--dp-rv-ster);
+}
+
+.dp-rv__sterren-keuze input:focus-visible + label {
+	outline: 2px solid var(--dp-rv-accent);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+.dp-rv__knop {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: .7em 1.6em;
+	border: 1px solid var(--dp-rv-accent);
+	border-radius: .35em;
+	background: var(--dp-rv-accent);
+	color: #fff;
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.dp-rv__knop:hover { filter: brightness(.92); }
+
+/* Honeypot: weg voor mensen, wel invulbaar voor een bot. */
+.dp-rv__hp {
+	position: absolute;
+	left: -9999px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
+/* ---------- compacte regel ---------- */
+
+.dp-rv-mini {
+	margin: 0;
+	font-size: .9375em;
+}
+
+.dp-rv-mini a {
+	display: inline-flex;
+	align-items: center;
+	gap: .5em;
+	color: inherit;
+	text-decoration: none;
+}
+
+.dp-rv-mini a:hover { text-decoration: underline; }
+
+.dp-rv-mini .dp-rv-stars { color: inherit; }
+.dp-rv-mini__cijfer { font-weight: 700; }
+.dp-rv-mini__aantal { opacity: .7; }
+
+.dp-rv-mini--leeg a { opacity: .7; }
+
+@media (max-width: 40rem) {
+	.dp-rv__rij { grid-template-columns: minmax(0, 1fr); }
+	.dp-rv__samenvatting { gap: var(--dp-rv-ruimte); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dp-rv__sterren-keuze label { transition: none; }
+}
