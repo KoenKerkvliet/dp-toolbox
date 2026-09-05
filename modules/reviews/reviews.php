@@ -3,14 +3,14 @@
  * Module Name: Reviews
  * Description: Productreviews met sterren, geverifieerde koop en moderatie. Werkt op elk berichttype; herkent zelf FluentCart en WooCommerce voor de koopcontrole. Weer te geven met de shortcodes [dp_reviews] en [dp_reviews_summary] of met de twee Bricks-elementen.
  * Category: content
- * Version: 1.0.0
+ * Version: 1.0.1
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DP_REVIEWS_VERSION', '1.0.0' );
+define( 'DP_REVIEWS_VERSION', '1.0.1' );
 define( 'DP_REVIEWS_PATH', __DIR__ . '/' );
 define( 'DP_REVIEWS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -613,6 +613,23 @@ function dp_reviews_form_html( $post_id ) {
 			</label>
 		</div>
 
+		<?php
+		/**
+		 * All-In-One Security zet verborgen sleutelvelden in het standaard
+		 * reactieformulier en markeert elke reactie zonder die velden als spam.
+		 * Ons formulier is een reactieformulier, dus het hoort ze mee te sturen.
+		 *
+		 * Zonder dit belandt elke review van een uitgelogde bezoeker in de
+		 * spammap in plaats van in de moderatiewachtrij — zonder melding, want
+		 * AIOS grijpt in op `pre_comment_approved`, ná onze eigen controles.
+		 * We schakelen AIOS dus niet uit, we voldoen aan de eis.
+		 */
+		if ( class_exists( 'AIOWPSecurity_Comment' ) && method_exists( 'AIOWPSecurity_Comment', 'insert_antibot_keys_in_comment_form' ) ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- AIOS escapet zijn eigen velden
+			echo AIOWPSecurity_Comment::insert_antibot_keys_in_comment_form();
+		}
+		?>
+
 		<fieldset class="dp-rv__veld dp-rv__sterren-veld">
 			<legend><?php esc_html_e( 'Jouw score', 'dp-toolbox' ); ?> <span class="dp-rv__verplicht">*</span></legend>
 			<div class="dp-rv__sterren-keuze">
@@ -764,10 +781,18 @@ function dp_reviews_schema() {
 		];
 	}
 
+	/**
+	 * De titel rauw uit het bericht, niet via get_the_title().
+	 *
+	 * Webshopplugins maken `the_title` op hun eigen productpagina leeg, zodat
+	 * het thema de titel niet nog een keer toont naast die van hun sjabloon.
+	 * FluentCart doet dat bijvoorbeeld. Met get_the_title() zou hier dus een
+	 * lege productnaam in de gestructureerde data belanden.
+	 */
 	$data = [
 		'@context'        => 'https://schema.org',
 		'@type'           => 'Product',
-		'name'            => get_the_title( $post_id ),
+		'name'            => get_post_field( 'post_title', $post_id ),
 		'url'             => get_permalink( $post_id ),
 		'aggregateRating' => [
 			'@type'       => 'AggregateRating',
