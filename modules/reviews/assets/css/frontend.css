@@ -18,6 +18,12 @@
 }
 
 .dp-rv {
+	/* display expliciet: ACSS zet op ELKE <section> flex-column met
+	   align-items:center en een container-gap. Zonder deze regel staan de
+	   samenvatting, de lijst en het formulier gecentreerd in een smalle kolom
+	   in plaats van over de volle breedte. Op sites zonder ACSS is het een
+	   no-op, want block is toch al de standaard voor een section. */
+	display: block;
 	color: var(--dp-rv-tekst);
 }
 
