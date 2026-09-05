@@ -282,7 +282,7 @@ function dp_toolbox_render_modules_tab() {
         'media'       => [ 'label' => 'Media',               'icon' => 'dashicons-admin-media' ],
         'security'    => [ 'label' => 'Beveiliging',         'icon' => 'dashicons-shield' ],
         'tools'       => [ 'label' => 'Tools',               'icon' => 'dashicons-admin-tools' ],
-        'woocommerce' => [ 'label' => 'WooCommerce',         'icon' => 'dashicons-cart' ],
+        'ecommerce'   => [ 'label' => 'E-commerce',          'icon' => 'dashicons-cart' ],
         'other'       => [ 'label' => 'Overig',              'icon' => 'dashicons-marker' ],
     ];
 

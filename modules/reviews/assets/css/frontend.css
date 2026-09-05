@@ -4,6 +4,10 @@
  * Deze module draait op elk thema, dus de opmaak staat op eigen benen. Waar een
  * site ACSS of eigen tokens heeft, worden die overgenomen via de var()-fallbacks:
  * --dp-rv-* eerst, dan de gangbare ACSS-namen, dan een neutrale waarde.
+ *
+ * Maatvoering is bewust krap gehouden, in de trant van bol.com en Coolblue: de
+ * samenvatting past in één oogopslag, en de ruimte zit in de scheidslijnen
+ * tussen de reviews in plaats van in marges eromheen.
  */
 
 /* De tokens staan op beide wortels: de samenvattingsregel staat los van de
@@ -13,8 +17,8 @@
 	--dp-rv-accent: var(--dp-rv-kleur, var(--primary, #8a5a30));
 	--dp-rv-tekst: var(--dp-rv-tekst-kleur, var(--base, #241c16));
 	--dp-rv-lijn: var(--dp-rv-lijn-kleur, rgba(0, 0, 0, .12));
+	--dp-rv-spoor: var(--dp-rv-spoor-kleur, rgba(0, 0, 0, .08));
 	--dp-rv-ster: var(--dp-rv-ster-kleur, #e0a94a);
-	--dp-rv-ruimte: var(--dp-rv-gap, 1.5rem);
 }
 
 .dp-rv {
@@ -28,7 +32,7 @@
 }
 
 .dp-rv__kop {
-	margin: 0 0 var(--dp-rv-ruimte);
+	margin: 0 0 1.1rem;
 }
 
 /* ---------- sterren ---------- */
@@ -42,7 +46,7 @@
 	white-space: nowrap;
 	line-height: 1;
 	font-size: 1em;
-	letter-spacing: .1em;
+	letter-spacing: .05em;
 }
 
 .dp-rv-stars::before,
@@ -51,7 +55,7 @@
 }
 
 .dp-rv-stars::before {
-	color: var(--dp-rv-lijn);
+	color: var(--dp-rv-spoor);
 }
 
 .dp-rv-stars__vol {
@@ -65,40 +69,38 @@
 /* ---------- samenvatting ---------- */
 
 .dp-rv__samenvatting {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--dp-rv-ruimte) calc(var(--dp-rv-ruimte) * 2);
-	align-items: center;
-	padding-block-end: var(--dp-rv-ruimte);
+	max-width: 26rem;
+	padding-block-end: 1.35rem;
 	border-block-end: 1px solid var(--dp-rv-lijn);
-	margin-block-end: var(--dp-rv-ruimte);
+	margin-block-end: .5rem;
 }
 
+/* Score, sterren en aantal op één regel — dat is de regel die mensen scannen. */
 .dp-rv__cijfer {
 	display: flex;
-	flex-direction: column;
-	gap: .35em;
-	align-items: flex-start;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: .2em .55em;
+	margin-block-end: .9rem;
 }
 
 .dp-rv__gemiddelde {
-	font-size: 2.4em;
+	font-size: 1.5em;
 	font-weight: 700;
-	line-height: 1;
+	line-height: 1.1;
 }
 
 .dp-rv__cijfer .dp-rv-stars {
-	font-size: 1.25em;
+	font-size: 1.15em;
+	transform: translateY(.05em);
 }
 
 .dp-rv__aantal {
 	font-size: .875em;
-	opacity: .7;
+	opacity: .65;
 }
 
 .dp-rv__verdeling {
-	flex: 1 1 14rem;
-	max-width: 22rem;
 	list-style: none;
 	margin: 0;
 	padding: 0;
@@ -106,77 +108,81 @@
 
 .dp-rv__verdeling-rij {
 	display: grid;
-	grid-template-columns: 1.25em 1fr 2.5em;
+	grid-template-columns: 5.25em minmax(0, 1fr) 2.25em;
 	align-items: center;
-	gap: .6em;
+	gap: .55em;
 	font-size: .8125em;
+	line-height: 1.4;
 	margin-block-end: .3em;
 }
 
-.dp-rv__verdeling-label {
-	text-align: end;
-	opacity: .7;
-}
+.dp-rv__verdeling-rij:last-child { margin-block-end: 0; }
+
+.dp-rv__verdeling-label { opacity: .75; }
 
 .dp-rv__balk {
 	display: block;
-	height: .5em;
+	height: .45em;
 	border-radius: 999px;
-	background: var(--dp-rv-lijn);
+	background: var(--dp-rv-spoor);
 	overflow: hidden;
 }
 
 .dp-rv__balk-vol {
 	display: block;
 	height: 100%;
+	border-radius: inherit;
 	background: var(--dp-rv-ster);
 }
 
 .dp-rv__verdeling-n {
-	opacity: .7;
+	text-align: end;
+	font-variant-numeric: tabular-nums;
+	opacity: .65;
 }
 
 /* ---------- lijst ---------- */
 
 .dp-rv__lijst {
 	list-style: none;
-	margin: 0 0 var(--dp-rv-ruimte);
+	margin: 0;
 	padding: 0;
 }
 
 .dp-rv__item {
-	padding-block: var(--dp-rv-ruimte);
+	padding-block: 1.15rem;
 	border-block-end: 1px solid var(--dp-rv-lijn);
-}
-
-.dp-rv__item:first-child {
-	padding-block-start: 0;
 }
 
 .dp-rv__item-kop {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
-	gap: .5em .75em;
-	margin-block-end: .5em;
+	gap: .25em .6em;
+	margin-block-end: .35em;
 }
+
+.dp-rv__item-kop .dp-rv-stars { font-size: .95em; }
 
 .dp-rv__item-titel {
 	margin: 0;
-	font-size: 1.05em;
+	font-size: 1em;
+	font-weight: 600;
+	line-height: 1.35;
 }
 
 .dp-rv__item-tekst > :first-child { margin-block-start: 0; }
 .dp-rv__item-tekst > :last-child  { margin-block-end: 0; }
+.dp-rv__item-tekst p { margin-block: 0 .5em; }
 
 .dp-rv__item-meta {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: .5em .75em;
-	margin: .6em 0 0;
+	gap: .35em .7em;
+	margin: .45em 0 0;
 	font-size: .8125em;
-	opacity: .75;
+	opacity: .7;
 }
 
 .dp-rv__auteur { font-weight: 600; opacity: 1; }
@@ -184,7 +190,8 @@
 .dp-rv__badge {
 	display: inline-flex;
 	align-items: center;
-	padding: .15em .5em;
+	gap: .3em;
+	padding: .1em .5em;
 	border-radius: 999px;
 	background: color-mix(in srgb, var(--dp-rv-accent) 12%, transparent);
 	color: var(--dp-rv-accent);
@@ -192,18 +199,25 @@
 	opacity: 1;
 }
 
+.dp-rv__badge::before {
+	content: "\2713";
+	font-weight: 700;
+}
+
 .dp-rv__leeg,
 .dp-rv__gesloten {
-	opacity: .75;
+	margin: 0;
+	opacity: .7;
 }
 
 /* ---------- meldingen ---------- */
 
 .dp-rv__melding {
-	padding: .75em 1em;
-	border-radius: .4em;
+	padding: .7em 1em;
+	border-radius: .35em;
 	border: 1px solid var(--dp-rv-lijn);
-	margin-block-end: var(--dp-rv-ruimte);
+	margin: 0 0 1.1rem;
+	font-size: .9375em;
 }
 
 .dp-rv__melding--ok {
@@ -219,32 +233,37 @@
 /* ---------- formulier ---------- */
 
 .dp-rv__form {
-	padding-block-start: var(--dp-rv-ruimte);
-	max-width: 40rem;
+	max-width: 34rem;
+	padding-block-start: 1.5rem;
 }
 
-.dp-rv__form-kop { margin: 0 0 var(--dp-rv-ruimte); }
+.dp-rv__form-kop {
+	margin: 0 0 1rem;
+	font-size: 1.05em;
+	font-weight: 600;
+}
 
-.dp-rv__veld { margin: 0 0 1rem; }
+.dp-rv__veld { margin: 0 0 .9rem; }
 
 .dp-rv__veld label,
 .dp-rv__sterren-veld legend {
 	display: block;
-	margin-block-end: .35em;
+	margin-block-end: .3em;
 	font-weight: 600;
-	font-size: .9375em;
+	font-size: .875em;
 }
 
 .dp-rv__veld input[type="text"],
 .dp-rv__veld input[type="email"],
 .dp-rv__veld textarea {
 	width: 100%;
-	padding: .6em .75em;
+	padding: .55em .7em;
 	border: 1px solid var(--dp-rv-lijn);
-	border-radius: .35em;
+	border-radius: .3em;
 	background: #fff;
 	color: inherit;
 	font: inherit;
+	font-size: .9375em;
 }
 
 .dp-rv__veld textarea { resize: vertical; }
@@ -252,25 +271,25 @@
 .dp-rv__rij {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 0 1rem;
+	gap: 0 .9rem;
 }
 
 .dp-rv__hint {
 	display: block;
-	margin-block-start: .3em;
+	margin-block-start: .25em;
 	font-size: .8125em;
 	font-weight: 400;
-	opacity: .7;
+	opacity: .65;
 }
 
-.dp-rv__hint--blok { margin-block-start: .75em; }
+.dp-rv__hint--blok { margin-block-start: .7em; }
 
 .dp-rv__verplicht { color: var(--dp-rv-accent); }
 
 .dp-rv__sterren-veld {
 	border: 0;
 	padding: 0;
-	margin: 0 0 1rem;
+	margin: 0 0 .9rem;
 }
 
 /* De radio's staan van 5 naar 1 in de HTML, zodat `:checked ~ label` de lagere
@@ -279,8 +298,8 @@
 	display: inline-flex;
 	flex-direction: row-reverse;
 	justify-content: flex-end;
-	gap: .1em;
-	font-size: 1.6em;
+	gap: .05em;
+	font-size: 1.5em;
 	line-height: 1;
 }
 
@@ -297,7 +316,7 @@
 .dp-rv__sterren-keuze label {
 	margin: 0;
 	cursor: pointer;
-	color: var(--dp-rv-lijn);
+	color: var(--dp-rv-spoor);
 	transition: color .12s ease;
 }
 
@@ -319,13 +338,14 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	padding: .7em 1.6em;
+	padding: .6em 1.5em;
 	border: 1px solid var(--dp-rv-accent);
-	border-radius: .35em;
+	border-radius: .3em;
 	background: var(--dp-rv-accent);
 	color: #fff;
 	font: inherit;
 	font-weight: 600;
+	font-size: .9375em;
 	cursor: pointer;
 }
 
@@ -340,6 +360,9 @@
 	overflow: hidden;
 }
 
+/* AIOS zet zijn antibot-velden in een <p>; die mag geen ruimte innemen. */
+.dp-rv__form .comment-form-aios-antibot-keys { margin: 0; }
+
 /* ---------- compacte regel ---------- */
 
 .dp-rv-mini {
@@ -350,22 +373,21 @@
 .dp-rv-mini a {
 	display: inline-flex;
 	align-items: center;
-	gap: .5em;
+	gap: .45em;
 	color: inherit;
 	text-decoration: none;
 }
 
 .dp-rv-mini a:hover { text-decoration: underline; }
 
-.dp-rv-mini .dp-rv-stars { color: inherit; }
 .dp-rv-mini__cijfer { font-weight: 700; }
-.dp-rv-mini__aantal { opacity: .7; }
+.dp-rv-mini__aantal { opacity: .65; }
 
 .dp-rv-mini--leeg a { opacity: .7; }
 
 @media (max-width: 40rem) {
 	.dp-rv__rij { grid-template-columns: minmax(0, 1fr); }
-	.dp-rv__samenvatting { gap: var(--dp-rv-ruimte); }
+	.dp-rv__verdeling-rij { grid-template-columns: 4.75em minmax(0, 1fr) 2em; }
 }
 
 @media (prefers-reduced-motion: reduce) {

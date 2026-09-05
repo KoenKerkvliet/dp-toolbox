@@ -3,14 +3,14 @@
  * Module Name: Reviews
  * Description: Productreviews met sterren, geverifieerde koop en moderatie. Werkt op elk berichttype; herkent zelf FluentCart en WooCommerce voor de koopcontrole. Weer te geven met de shortcodes [dp_reviews] en [dp_reviews_summary] of met de twee Bricks-elementen.
  * Category: content
- * Version: 1.0.2
+ * Version: 1.0.3
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DP_REVIEWS_VERSION', '1.0.2' );
+define( 'DP_REVIEWS_VERSION', '1.0.3' );
 define( 'DP_REVIEWS_PATH', __DIR__ . '/' );
 define( 'DP_REVIEWS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -534,7 +534,14 @@ function dp_reviews_render( $atts = [] ) {
 						$breedte = $samenvatting['count'] ? ( $n / $samenvatting['count'] ) * 100 : 0;
 						?>
 						<li class="dp-rv__verdeling-rij">
-							<span class="dp-rv__verdeling-label"><?php echo esc_html( $ster ); ?></span>
+							<span class="dp-rv__verdeling-label">
+								<?php
+								printf(
+									esc_html( _n( '%s ster', '%s sterren', $ster, 'dp-toolbox' ) ),
+									esc_html( $ster )
+								);
+								?>
+							</span>
 							<span class="dp-rv__balk"><span class="dp-rv__balk-vol" style="width:<?php echo esc_attr( round( $breedte, 2 ) ); ?>%"></span></span>
 							<span class="dp-rv__verdeling-n"><?php echo esc_html( number_format_i18n( $n ) ); ?></span>
 						</li>

@@ -2,7 +2,8 @@
 /**
  * Module Name: Free Shipping Bar
  * Description: Toont een voortgangsbalk in de cart en mini-cart: "Nog €X tot gratis verzending". Auto-detecteert de drempel uit je WooCommerce verzendzones (free_shipping methode). Power-users kunnen overriden via het filter dp_fsb_threshold.
- * Category: woocommerce
+ * Category: ecommerce
+ * Requires: woocommerce
  * Version: 1.0.0
  */
 

@@ -3,6 +3,7 @@
  * Module Name: Etch GSAP
  * Description: Laadt GSAP + ScrollTrigger op Etch-sites en biedt een kleine set scroll-animaties via data-attributen (data-dp-anim, data-dp-stagger). Alleen in te schakelen wanneer Etch actief is; op Bricks-sites wordt er niets geladen.
  * Category: tools
+ * Requires: etch
  * Version: 1.0.0
  *
  * Meegeleverde software van derden: assets/gsap.min.js en assets/ScrollTrigger.min.js

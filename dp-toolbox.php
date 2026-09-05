@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DP Toolbox
  * Description: Design Pixels gereedschapskist — modulaire verzameling van site-tools.
- * Version: 2.50.2
+ * Version: 2.51.0
  * Author: Design Pixels
  * Text Domain: dp-toolbox
  * GitHub Plugin URI: KoenKerkvliet/dp-toolbox
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DP_TOOLBOX_VERSION', '2.50.2' );
+define( 'DP_TOOLBOX_VERSION', '2.51.0' );
 define( 'DP_TOOLBOX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DP_TOOLBOX_URL', plugin_dir_url( __FILE__ ) );
 
@@ -59,6 +59,7 @@ function dp_toolbox_get_module_info( $module_file ) {
         'description' => 'Description',
         'version'     => 'Version',
         'category'    => 'Category',
+        'requires'    => 'Requires',
     ];
     return get_file_data( $module_file, $headers );
 }
@@ -91,6 +92,7 @@ function dp_toolbox_get_available_modules() {
             'description' => $info['description'] ?: '',
             'version'     => $info['version'] ?: '',
             'category'    => $info['category'] ?: '',
+            'requires'    => $info['requires'] ?: '',
         ];
     }
 
@@ -283,45 +285,149 @@ function dp_toolbox_aios_is_available() {
 }
 
 /**
- * Onvervulde vereisten per module: slug => [ 'met' => bool, 'reason' => string ].
- * Modules zonder entry hebben geen vereisten.
+ * Draait deze site op WooCommerce?
+ *
+ * Optie i.p.v. class_exists('WooCommerce'): dit draait op plugins_loaded,
+ * waar de klasse van een andere plugin er nog niet hoeft te zijn.
  */
-function dp_toolbox_get_module_requirements() {
+function dp_toolbox_woocommerce_is_available() {
+    static $cached = null;
+    if ( null !== $cached ) {
+        return $cached;
+    }
+
+    return $cached = dp_toolbox_plugin_is_active( 'woocommerce/woocommerce.php' );
+}
+
+/**
+ * Draait deze site op FluentCart?
+ */
+function dp_toolbox_fluentcart_is_available() {
+    static $cached = null;
+    if ( null !== $cached ) {
+        return $cached;
+    }
+
+    return $cached = dp_toolbox_plugin_is_active( 'fluent-cart/fluent-cart.php' );
+}
+
+/**
+ * Is een plugin actief, netwerkbreed of op deze site?
+ */
+function dp_toolbox_plugin_is_active( $bestand ) {
+    if ( in_array( $bestand, (array) get_option( 'active_plugins', [] ), true ) ) {
+        return true;
+    }
+
+    if ( is_multisite() && isset( ( (array) get_site_option( 'active_sitewide_plugins', [] ) )[ $bestand ] ) ) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Onvervulde vereisten per module: slug => [ 'met' => bool, 'reason' => string ].
+ *
+ * Een module verklaart zelf waar hij van afhangt, met de header `Requires:`.
+ * Zo staat de eis bij de module in plaats van in een lijst hier die je vergeet
+ * bij te werken zodra er een module bijkomt. Modules zonder die header hebben
+ * geen vereisten.
+ *
+ * @param string|null $alleen_slug Beperk de scan tot deze ene module. De
+ *                                 modulepagina vraagt de hele lijst; het laden
+ *                                 van modules hoeft alleen naar zichzelf te
+ *                                 kijken en leest dan niet de headers van
+ *                                 veertig bestanden per paginaweergave.
+ */
+function dp_toolbox_get_module_requirements( $alleen_slug = null ) {
     $reqs = [];
 
-    if ( ! dp_toolbox_bricks_is_available() ) {
-        $reqs['site-navigator'] = [
-            'met'    => false,
-            'reason' => dp_toolbox_etch_is_available()
-                ? 'Vereist Bricks. Deze site draait op Etch — de snelnavigatie wijst naar schermen die hier niet bestaan.'
-                : 'Vereist het Bricks-thema. Niet gevonden op deze site.',
-        ];
+    if ( null !== $alleen_slug ) {
+        $bestand = DP_TOOLBOX_PATH . 'modules/' . $alleen_slug . '/' . $alleen_slug . '.php';
+        $modules = file_exists( $bestand )
+            ? [ $alleen_slug => dp_toolbox_get_module_info( $bestand ) ]
+            : [];
+    } else {
+        $modules = dp_toolbox_get_available_modules();
     }
 
-    if ( ! dp_toolbox_aios_is_available() ) {
-        $reqs['lockout-notices'] = [
-            'met'    => false,
-            'reason' => 'Vereist All-In-One Security (AIOS). Die plugin verstuurt de uitsluitingsmails die deze module filtert.',
-        ];
-    }
+    foreach ( $modules as $slug => $module ) {
+        $vereist = strtolower( trim( $module['requires'] ?? '' ) );
+        if ( '' === $vereist ) {
+            continue;
+        }
 
-    if ( ! dp_toolbox_etch_is_available() ) {
-        $reqs['etch-gsap'] = [
-            'met'    => false,
-            'reason' => get_option( 'template' ) === 'bricks'
-                ? 'Vereist Etch. Deze site draait op Bricks — gebruik daar Bricksforge voor animaties.'
-                : 'Vereist het Etch-thema of de Etch-plugin. Niet gevonden op deze site.',
-        ];
+        $oordeel = dp_toolbox_check_requirement( $vereist );
+
+        // Onbekende vereiste blokkeert niets: liever een module die werkt dan
+        // een module die onbereikbaar wordt door een typefout in een header.
+        if ( null === $oordeel || ! empty( $oordeel['met'] ) ) {
+            continue;
+        }
+
+        $reqs[ $slug ] = $oordeel;
     }
 
     return apply_filters( 'dp_toolbox_module_requirements', $reqs );
 }
 
 /**
- * Mag deze module aangezet worden op deze site?
+ * Vertaalt één `Requires:`-waarde naar beschikbaarheid plus uitleg.
+ *
+ * De uitleg noemt waar mogelijk wat er dan wél draait. "Deze webshop draait op
+ * FluentCart" vertelt meer dan "WooCommerce niet gevonden", en voorkomt de vraag
+ * of er iets stuk is.
+ */
+function dp_toolbox_check_requirement( $vereist ) {
+    switch ( $vereist ) {
+        case 'bricks':
+            return [
+                'met'    => dp_toolbox_bricks_is_available(),
+                'reason' => dp_toolbox_etch_is_available()
+                    ? 'Vereist Bricks. Deze site draait op Etch — de snelnavigatie wijst naar schermen die hier niet bestaan.'
+                    : 'Vereist het Bricks-thema. Niet gevonden op deze site.',
+            ];
+
+        case 'etch':
+            return [
+                'met'    => dp_toolbox_etch_is_available(),
+                'reason' => get_option( 'template' ) === 'bricks'
+                    ? 'Vereist Etch. Deze site draait op Bricks — gebruik daar Bricksforge voor animaties.'
+                    : 'Vereist het Etch-thema of de Etch-plugin. Niet gevonden op deze site.',
+            ];
+
+        case 'aios':
+            return [
+                'met'    => dp_toolbox_aios_is_available(),
+                'reason' => 'Vereist All-In-One Security (AIOS). Die plugin verstuurt de uitsluitingsmails die deze module filtert.',
+            ];
+
+        case 'woocommerce':
+            return [
+                'met'    => dp_toolbox_woocommerce_is_available(),
+                'reason' => dp_toolbox_fluentcart_is_available()
+                    ? 'Vereist WooCommerce. Deze webshop draait op FluentCart.'
+                    : 'Vereist WooCommerce. Niet gevonden op deze site.',
+            ];
+
+        case 'fluent-cart':
+            return [
+                'met'    => dp_toolbox_fluentcart_is_available(),
+                'reason' => dp_toolbox_woocommerce_is_available()
+                    ? 'Vereist FluentCart. Deze webshop draait op WooCommerce.'
+                    : 'Vereist FluentCart. Niet gevonden op deze site.',
+            ];
+    }
+
+    return null;
+}
+
+/**
+ * Mag deze module aangezet en geladen worden?
  */
 function dp_toolbox_module_requirement_met( $slug ) {
-    $reqs = dp_toolbox_get_module_requirements();
+    $reqs = dp_toolbox_get_module_requirements( $slug );
     return ! isset( $reqs[ $slug ] ) || ! empty( $reqs[ $slug ]['met'] );
 }
 

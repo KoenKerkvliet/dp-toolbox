@@ -2,7 +2,8 @@
 /**
  * Module Name: Low Stock Urgency
  * Description: Toont "Nog X stuks beschikbaar!" op de single-product pagina zodra de voorraad onder de WooCommerce low-stock drempel zakt. Geen instellingen — leest de per-product of globale drempel uit WooCommerce. Filter dp_lsu_threshold om de drempel te overriden.
- * Category: woocommerce
+ * Category: ecommerce
+ * Requires: woocommerce
  * Version: 1.0.0
  */
 

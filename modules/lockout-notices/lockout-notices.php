@@ -3,6 +3,7 @@
  * Module Name: Uitsluitingsmeldingen
  * Description: Filtert de uitsluitingsmails van AIOS: alleen nog bericht als het om een bestaand account gaat, niet bij bots.
  * Category: security
+ * Requires: aios
  * Version: 1.0.0
  */
 
