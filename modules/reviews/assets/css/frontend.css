@@ -69,6 +69,12 @@
 /* ---------- samenvatting ---------- */
 
 .dp-rv__samenvatting {
+	/* Ook hier expliciet: ACSS heeft náást de section-regel een tweede regel
+	   voor `section > div`, die elke directe kind-div op flex-column met
+	   align-items:flex-start zet. De samenvatting is zo'n div, en zonder deze
+	   regel krimpt hij tot de breedte van zijn inhoud — waarna de balkjes van
+	   de verdeling nul pixels breed zijn en dus onzichtbaar. */
+	display: block;
 	max-width: 26rem;
 	padding-block-end: 1.35rem;
 	border-block-end: 1px solid var(--dp-rv-lijn);

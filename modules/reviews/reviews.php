@@ -3,14 +3,14 @@
  * Module Name: Reviews
  * Description: Productreviews met sterren, geverifieerde koop en moderatie. Werkt op elk berichttype; herkent zelf FluentCart en WooCommerce voor de koopcontrole. Weer te geven met de shortcodes [dp_reviews] en [dp_reviews_summary] of met de twee Bricks-elementen.
  * Category: content
- * Version: 1.0.3
+ * Version: 1.0.4
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DP_REVIEWS_VERSION', '1.0.3' );
+define( 'DP_REVIEWS_VERSION', '1.0.4' );
 define( 'DP_REVIEWS_PATH', __DIR__ . '/' );
 define( 'DP_REVIEWS_URL', plugin_dir_url( __FILE__ ) );
 
