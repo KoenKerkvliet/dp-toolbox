@@ -2,15 +2,15 @@
 /**
  * Module Name: Reviews
  * Description: Productreviews met sterren, geverifieerde koop en moderatie. Werkt op elk berichttype; herkent zelf FluentCart en WooCommerce voor de koopcontrole. Weer te geven met de shortcodes [dp_reviews] en [dp_reviews_summary] of met de twee Bricks-elementen.
- * Category: content
- * Version: 1.0.4
+ * Category: ecommerce
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DP_REVIEWS_VERSION', '1.0.4' );
+define( 'DP_REVIEWS_VERSION', '1.1.0' );
 define( 'DP_REVIEWS_PATH', __DIR__ . '/' );
 define( 'DP_REVIEWS_URL', plugin_dir_url( __FILE__ ) );
 
@@ -28,6 +28,18 @@ define( 'DP_REVIEWS_URL', plugin_dir_url( __FILE__ ) );
  * dp_reviews_exclude_from_comment_queries().
  */
 const DP_REVIEWS_COMMENT_TYPE = 'dp_review';
+
+/**
+ * Het anker waar de reviewsectie op te vinden is.
+ *
+ * Bewust `reviews` en niet `dp-reviews`: dit komt in de adresbalk terecht zodra
+ * iemand op de sterren onder de producttitel klikt, en een bezoeker hoeft niet
+ * te zien met welke plugin de winkel gebouwd is. Aan te passen met het filter
+ * voor als een thema het id `reviews` al gebruikt.
+ */
+function dp_reviews_anchor() {
+	return sanitize_title( apply_filters( 'dp_reviews_anchor', 'reviews' ) );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Instellingen                                                        */
@@ -356,7 +368,7 @@ function dp_reviews_handle_submit() {
 	$terug   = $post_id ? get_permalink( $post_id ) : home_url( '/' );
 
 	$fout = function ( $code ) use ( $terug ) {
-		wp_safe_redirect( add_query_arg( 'dp_review', $code, $terug ) . '#dp-reviews' );
+		wp_safe_redirect( add_query_arg( 'review', $code, $terug ) . '#' . dp_reviews_anchor() );
 		exit;
 	};
 
@@ -448,7 +460,7 @@ function dp_reviews_handle_submit() {
 	$status = wp_get_comment_status( $comment_id );
 
 	wp_safe_redirect(
-		add_query_arg( 'dp_review', $status === 'approved' ? 'ok' : 'pending', $terug ) . '#dp-reviews'
+		add_query_arg( 'review', $status === 'approved' ? 'ok' : 'pending', $terug ) . '#' . dp_reviews_anchor()
 	);
 	exit;
 }
@@ -487,11 +499,11 @@ function dp_reviews_render( $atts = [] ) {
 
 	$samenvatting = dp_reviews_summary( $post_id );
 	$reviews      = dp_reviews_get( $post_id );
-	$melding      = isset( $_GET['dp_review'] ) ? sanitize_key( $_GET['dp_review'] ) : '';
+	$melding      = isset( $_GET['review'] ) ? sanitize_key( $_GET['review'] ) : '';
 
 	ob_start();
 	?>
-	<section class="dp-rv" id="dp-reviews">
+	<section class="dp-rv" id="<?php echo esc_attr( dp_reviews_anchor() ); ?>">
 		<h2 class="dp-rv__kop"><?php echo esc_html( $atts['titel'] ); ?></h2>
 
 		<?php if ( $melding ) : ?>
@@ -716,7 +728,8 @@ function dp_reviews_summary_render( $atts = [] ) {
 		}
 		dp_reviews_enqueue_assets();
 		return sprintf(
-			'<p class="dp-rv-mini dp-rv-mini--leeg"><a href="#dp-reviews">%s</a></p>',
+			'<p class="dp-rv-mini dp-rv-mini--leeg"><a href="#%1$s">%2$s</a></p>',
+			esc_attr( dp_reviews_anchor() ),
 			esc_html__( 'Nog geen beoordelingen — schrijf de eerste', 'dp-toolbox' )
 		);
 	}
@@ -724,7 +737,8 @@ function dp_reviews_summary_render( $atts = [] ) {
 	dp_reviews_enqueue_assets();
 
 	return sprintf(
-		'<p class="dp-rv-mini"><a href="#dp-reviews">%1$s<span class="dp-rv-mini__cijfer">%2$s</span><span class="dp-rv-mini__aantal">%3$s</span></a></p>',
+		'<p class="dp-rv-mini"><a href="#%1$s">%2$s<span class="dp-rv-mini__cijfer">%3$s</span><span class="dp-rv-mini__aantal">%4$s</span></a></p>',
+		esc_attr( dp_reviews_anchor() ),
 		dp_reviews_stars_html( $s['avg'] ),
 		esc_html( number_format_i18n( $s['avg'], 1 ) ),
 		esc_html( sprintf( _n( '%s beoordeling', '%s beoordelingen', $s['count'], 'dp-toolbox' ), number_format_i18n( $s['count'] ) ) )
