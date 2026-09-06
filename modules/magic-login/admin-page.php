@@ -30,6 +30,9 @@ function dp_toolbox_ml_sanitize_settings( $input ) {
         'redirect'      => $redirect,
         'show_on_login' => empty( $input['show_on_login'] ) ? 0 : 1,
         'max_per_hour'  => max( 1, min( 20, (int) ( $input['max_per_hour'] ?? $defaults['max_per_hour'] ) ) ),
+        'method'        => in_array( $input['method'] ?? '', [ 'both', 'link', 'code' ], true ) ? $input['method'] : $defaults['method'],
+        'code_ttl'      => max( 3, min( 60, (int) ( $input['code_ttl'] ?? $defaults['code_ttl'] ) ) ),
+        'code_attempts' => max( 3, min( 10, (int) ( $input['code_attempts'] ?? $defaults['code_attempts'] ) ) ),
         'mail_subject'  => sanitize_text_field( $input['mail_subject'] ?? $defaults['mail_subject'] ),
         'mail_body'     => sanitize_textarea_field( $input['mail_body'] ?? $defaults['mail_body'] ),
     ];
@@ -131,6 +134,59 @@ function dp_toolbox_ml_render_inline() {
             <div class="dp-ml-row">
                 <div class="dp-ml-inline">
                     <div class="dp-ml-grow">
+                        <h3>Wat sturen we mee?</h3>
+                        <p class="desc" style="margin-bottom:0;">
+                            Een link is het snelst, maar werkt slecht als de mail op een ander
+                            apparaat binnenkomt dan waar iemand verder wil. Een code van zes cijfers
+                            tik je gewoon over. Allebei sturen dekt beide situaties.
+                        </p>
+                    </div>
+                    <select name="dp_toolbox_magic_login[method]">
+                        <?php foreach ( [ 'both' => 'Link én code', 'link' => 'Alleen een link', 'code' => 'Alleen een code' ] as $waarde => $label ) : ?>
+                            <option value="<?php echo esc_attr( $waarde ); ?>" <?php selected( $s['method'], $waarde ); ?>>
+                                <?php echo esc_html( $label ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div class="dp-ml-row">
+                <div class="dp-ml-inline">
+                    <div class="dp-ml-grow">
+                        <h3>Hoe lang is een code geldig?</h3>
+                        <p class="desc" style="margin-bottom:0;">
+                            Korter dan de link: zes cijfers zijn nu eenmaal te raden, dus die moeten
+                            snel verlopen. De code werkt bovendien alléén in het venster waar hij is
+                            aangevraagd, en gaat na <?php echo esc_html( $s['code_attempts'] ); ?> foute
+                            pogingen definitief op slot.
+                        </p>
+                    </div>
+                    <select name="dp_toolbox_magic_login[code_ttl]">
+                        <?php foreach ( [ 5, 10, 15, 30 ] as $min ) : ?>
+                            <option value="<?php echo esc_attr( $min ); ?>" <?php selected( (int) $s['code_ttl'], $min ); ?>>
+                                <?php echo esc_html( $min ); ?> minuten
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div class="dp-ml-row">
+                <div class="dp-ml-inline">
+                    <div class="dp-ml-grow">
+                        <h3>Pogingen per code</h3>
+                        <p class="desc" style="margin-bottom:0;">Daarna is de code dood en moet er een nieuwe aangevraagd worden.</p>
+                    </div>
+                    <input type="number" min="3" max="10" step="1" style="width:80px;"
+                           name="dp_toolbox_magic_login[code_attempts]"
+                           value="<?php echo esc_attr( $s['code_attempts'] ); ?>">
+                </div>
+            </div>
+
+            <div class="dp-ml-row">
+                <div class="dp-ml-inline">
+                    <div class="dp-ml-grow">
                         <h3>Hoe lang is een link geldig?</h3>
                         <p class="desc" style="margin-bottom:0;">Korter is veiliger. Vijftien minuten is ruim genoeg om een mail te openen.</p>
                     </div>
@@ -199,7 +255,9 @@ function dp_toolbox_ml_render_inline() {
             <div class="dp-ml-row">
                 <h3>De e-mail</h3>
                 <p class="desc dp-ml-tokens">
-                    Beschikbaar: <code>{naam}</code><code>{link}</code><code>{site}</code><code>{geldigheid}</code>
+                    Beschikbaar: <code>{naam}</code><code>{link}</code><code>{code}</code><code>{site}</code><code>{geldigheid}</code><code>{codeduur}</code>
+                    <br>Een regel met <code>{link}</code> of <code>{code}</code> verdwijnt vanzelf uit de mail
+                    wanneer die manier niet aanstaat, zodat er geen kale regel achterblijft.
                 </p>
                 <input type="text" name="dp_toolbox_magic_login[mail_subject]"
                        value="<?php echo esc_attr( $s['mail_subject'] ); ?>"
