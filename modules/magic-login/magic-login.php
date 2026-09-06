@@ -123,6 +123,23 @@ function dp_toolbox_ml_wants_code() {
     return dp_toolbox_ml_method() !== 'link';
 }
 
+/**
+ * De bewoording volgt de gekozen manier.
+ *
+ * Een knop die "Stuur mij een inloglink" heet terwijl er een code aankomt, is
+ * precies het soort kleine leugen waar een minder handige gebruiker op vastloopt.
+ */
+function dp_toolbox_ml_labels() {
+    switch ( dp_toolbox_ml_method() ) {
+        case 'code':
+            return [ 'tab' => 'Inlogcode', 'knop' => 'Stuur mij een code', 'log' => 'Inlogcode aangevraagd' ];
+        case 'link':
+            return [ 'tab' => 'Inloglink', 'knop' => 'Stuur mij een inloglink', 'log' => 'Inloglink aangevraagd' ];
+        default:
+            return [ 'tab' => 'Zonder wachtwoord', 'knop' => 'Stuur mij een inlogmail', 'log' => 'Inlogcode en link aangevraagd' ];
+    }
+}
+
 function dp_toolbox_ml_code_ttl() {
     return max( 3, min( 60, (int) dp_toolbox_ml_setting( 'code_ttl' ) ) );
 }
@@ -445,7 +462,7 @@ function dp_toolbox_ml_handle_request( $email, $redirect_to = '' ) {
         dp_toolbox_ml_send_mail( $user, $url, $ttl, $code );
     }, 1 );
 
-    dp_toolbox_ml_log( 'Inloglink aangevraagd', [
+    dp_toolbox_ml_log( dp_toolbox_ml_labels()['log'], [
         'object_type' => 'user',
         'object_id'   => $user->ID,
         'object_name' => $user->user_login,
@@ -1077,7 +1094,7 @@ function dp_toolbox_ml_panel_html( $redirect_to = '' ) {
             </label>
         </div>
 
-        <button type="submit" class="dp-ml-btn">Stuur mij een inloglink</button>
+        <button type="submit" class="dp-ml-btn"><?php echo esc_html( dp_toolbox_ml_labels()['knop'] ); ?></button>
     </form>
     <?php
     return ob_get_clean();
@@ -1288,7 +1305,7 @@ add_action( 'login_footer', function () {
 
         var startOpLink = <?php echo $geopend ? 'true' : 'false'; ?>;
         var tabWachtwoord = maakTab('Wachtwoord', !startOpLink);
-        var tabLink       = maakTab('Inloglink', startOpLink);
+        var tabLink       = maakTab(<?php echo wp_json_encode( dp_toolbox_ml_labels()['tab'] ); ?>, startOpLink);
 
         form.parentNode.insertBefore(tabs, form);
         form.parentNode.insertBefore(pane, form.nextSibling);
