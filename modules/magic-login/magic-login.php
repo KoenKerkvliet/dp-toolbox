@@ -1,9 +1,9 @@
 <?php
 /**
  * Module Name: Magic Login
- * Description: Laat leden inloggen zonder wachtwoord: een eenmalige link per e-mail, een code van zes cijfers, of allebei in dezelfde mail. Beheerders blijven op wachtwoord.
+ * Description: Laat leden inloggen zonder wachtwoord: een code van zes cijfers, een eenmalige link, of allebei in dezelfde mail. Beheerders blijven op wachtwoord.
  * Category: security
- * Version: 1.3.0
+ * Version: 1.4.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -22,11 +22,28 @@ function dp_toolbox_ml_defaults() {
         'redirect'      => '',   // leeg = home_url('/')
         'show_on_login' => 1,    // blok tonen op de wp-login pagina
         'max_per_hour'  => 3,    // aanvragen per account per uur
-        'method'        => 'both', // both | link | code
+        'method'        => 'code', // code | link | both
         'code_ttl'      => 10,   // minuten, geldt voor de cijfercode
         'code_attempts' => 5,    // foute pogingen voordat de code sterft
-        'mail_subject'  => 'Je inloglink voor {site}',
-        'mail_body'     => "Hallo {naam},\n\nHier is je persoonlijke inloglink voor {site}:\n\n{link}\n\nLiever overtikken? Gebruik deze code: {code}\n\nDe link is {geldigheid} minuten geldig en werkt één keer.\nHeb je hier niet om gevraagd? Dan hoef je niets te doen.\n\nGroet,\n{site}",
+        'mail_subject'  => 'Inloggen op {site}',
+        'mail_body'     => "Hallo {naam},
+
+[code]Dit is je inlogcode voor {site}:
+
+{code}
+
+Vul de code in op het scherm waar je hem hebt aangevraagd. De code is {codeduur} minuten geldig.[/code]
+
+[link]Klik op de knop hieronder om in te loggen:
+
+{link}
+
+De link is {geldigheid} minuten geldig en werkt één keer.[/link]
+
+Heb je hier niet om gevraagd? Dan hoef je niets te doen.
+
+Groet,
+{site}",
     ];
 }
 
@@ -278,6 +295,82 @@ function dp_toolbox_ml_destination( $requested = '' ) {
  *
  * @return true|WP_Error true bij "verwerkt", WP_Error alleen bij rate limiting.
  */
+/**
+ * Het opgeslagen record van een aanvraag, of false.
+ *
+ * Een record dat helemaal op is bewaren we nog even als spoor, zodat we
+ * "die code is al gebruikt" kunnen zeggen in plaats van het vage "klopt niet
+ * of is verlopen". Is ook dat spoor verlopen, dan ruimen we het hier op.
+ */
+function dp_toolbox_ml_stored( $uid ) {
+    $stored = get_user_meta( $uid, '_dp_magic_login', true );
+
+    if ( ! is_array( $stored ) ) {
+        return false;
+    }
+
+    if ( ! empty( $stored['spent_until'] ) && time() > (int) $stored['spent_until'] ) {
+        delete_user_meta( $uid, '_dp_magic_login' );
+        return false;
+    }
+
+    return $stored;
+}
+
+/**
+ * Schrijf het record terug en ruim op zodra beide ingangen dicht zijn.
+ */
+function dp_toolbox_ml_store( $uid, $stored ) {
+    $link_open = ! empty( $stored['hash'] ) && time() < (int) ( $stored['expires'] ?? 0 );
+    $code_open = ! empty( $stored['code_hash'] ) && time() < (int) ( $stored['code_expires'] ?? 0 );
+
+    if ( $link_open || $code_open ) {
+        update_user_meta( $uid, '_dp_magic_login', $stored );
+        return;
+    }
+
+    update_user_meta( $uid, '_dp_magic_login', [
+        'link_used'   => (int) ( $stored['link_used'] ?? 0 ),
+        'code_used'   => (int) ( $stored['code_used'] ?? 0 ),
+        'spent_until' => time() + ( 30 * MINUTE_IN_SECONDS ),
+    ] );
+}
+
+/**
+ * Verzilver één van de twee ingangen en laat de andere met rust.
+ *
+ * LANDMIJN — waarom dit niet gewoon het hele record weggooit.
+ * Link en code komen uit dezelfde aanvraag en stonden daarom in één record, dat
+ * bij gebruik in zijn geheel verdween. Dat brak een alledaags scenario: iemand
+ * vraagt op de laptop toegang aan, opent de mail op zijn telefoon en tikt daar
+ * op de link. Hij is dan ingelogd op het verkeerde apparaat, en op de laptop
+ * kreeg hij "deze code klopt niet of is verlopen" te zien — terwijl de code
+ * prima was, alleen niet meer bestond. Elke ingang vervalt nu apart. Beide
+ * blijven eenmalig, dus je levert er geen eenmaligheid mee in.
+ */
+function dp_toolbox_ml_spend( $uid, $what ) {
+    $stored = dp_toolbox_ml_stored( $uid );
+
+    if ( ! $stored ) {
+        return;
+    }
+
+    if ( 'link' === $what ) {
+        $stored['hash']      = '';
+        $stored['expires']   = 0;
+        $stored['link_used'] = time();
+    } else {
+        $stored['code_hash']    = '';
+        $stored['code_expires'] = 0;
+        $stored['code_used']    = time();
+
+        // De koppeling hoort bij de code. De link mag zonder cookie werken.
+        dp_toolbox_ml_clear_binding();
+    }
+
+    dp_toolbox_ml_store( $uid, $stored );
+}
+
 function dp_toolbox_ml_handle_request( $email, $redirect_to = '' ) {
     $ip = dp_toolbox_ml_client_ip();
 
@@ -306,7 +399,14 @@ function dp_toolbox_ml_handle_request( $email, $redirect_to = '' ) {
     }
 
     $ttl   = max( 5, min( 120, (int) dp_toolbox_ml_setting( 'ttl' ) ) );
-    $token = bin2hex( random_bytes( 32 ) );
+
+    /*
+     * Alleen een token maken als er ook echt een link meegaat. Anders zou er
+     * een geldige inloglink in de database staan die niemand ooit te zien
+     * krijgt — onschadelijk, maar het is sleutels bijmaken voor een deur die
+     * je niet gebruikt.
+     */
+    $token = dp_toolbox_ml_wants_link() ? bin2hex( random_bytes( 32 ) ) : '';
 
     $code     = '';
     $code_ttl = dp_toolbox_ml_code_ttl();
@@ -320,8 +420,8 @@ function dp_toolbox_ml_handle_request( $email, $redirect_to = '' ) {
 
     // Alleen de hashes gaan de database in. Een databaselek is dan geen inloglek.
     update_user_meta( $user->ID, '_dp_magic_login', [
-        'hash'          => hash( 'sha256', $token ),
-        'expires'       => time() + ( $ttl * MINUTE_IN_SECONDS ),
+        'hash'          => $token ? hash( 'sha256', $token ) : '',
+        'expires'       => $token ? time() + ( $ttl * MINUTE_IN_SECONDS ) : 0,
         'code_hash'     => $code ? hash( 'sha256', $code ) : '',
         'code_expires'  => $code ? time() + ( $code_ttl * MINUTE_IN_SECONDS ) : 0,
         'code_attempts' => 0,
@@ -355,9 +455,129 @@ function dp_toolbox_ml_handle_request( $email, $redirect_to = '' ) {
     return true;
 }
 
+/**
+ * Zet de blokken [code]...[/code] en [link]...[/link] aan of uit.
+ *
+ * Waarom blokken en niet per regel: bij "alleen een code" moet niet alleen de
+ * regel met {link} weg, maar ook de zin die hem aankondigt. Anders blijft er
+ * een mail over die verwijst naar iets wat er niet meer in staat.
+ */
+function dp_toolbox_ml_toggle_block( $template, $tag, $keep ) {
+    return preg_replace_callback(
+        '/\[' . $tag . '\](.*?)\[\/' . $tag . '\]/s',
+        function ( $m ) use ( $keep ) {
+            return $keep ? $m[1] : '';
+        },
+        $template
+    );
+}
+
+/**
+ * De mailtekst klaarmaken voor deze ene verzending.
+ */
+function dp_toolbox_ml_resolve_body( $template, $has_code ) {
+    $wants_link = dp_toolbox_ml_wants_link();
+    $has_blocks = false !== strpos( $template, '[code]' ) || false !== strpos( $template, '[link]' );
+
+    if ( $has_blocks ) {
+        $template = dp_toolbox_ml_toggle_block( $template, 'code', (bool) $has_code );
+        $template = dp_toolbox_ml_toggle_block( $template, 'link', $wants_link );
+    } else {
+        /*
+         * Sites die hun mailtekst al hadden aangepast kennen de blokken niet.
+         * Gaat die tekst over een link die niet meer meegaat, dan valt er niets
+         * te redden: dan is de standaardtekst beter dan een mail die verwijst
+         * naar een knop die er niet is.
+         */
+        if ( ! $wants_link && false === strpos( $template, '{code}' ) ) {
+            $defaults = dp_toolbox_ml_defaults();
+            return dp_toolbox_ml_resolve_body( $defaults['mail_body'], $has_code );
+        }
+
+        if ( $has_code && false === strpos( $template, '{code}' ) ) {
+            $template = rtrim( $template ) . "\n\n" . 'Je code: {code}';
+        }
+
+        if ( ! $has_code ) {
+            $template = preg_replace( '/^.*\{code\}.*$\R?/m', '', $template );
+        }
+
+        if ( ! $wants_link ) {
+            $template = preg_replace( '/^.*\{link\}.*$\R?/m', '', $template );
+        }
+    }
+
+    // Weggehaalde blokken laten gaten achter; die trekken we hier weer dicht.
+    $template = preg_replace( '/\R{3,}/', "\n\n", $template );
+
+    return trim( $template );
+}
+
+/**
+ * De HTML-versie van de mail.
+ *
+ * De code moet het eerste zijn wat iemand ziet en moet over te tikken zijn
+ * zonder te turen. Dat kan alleen in HTML, en alleen met inline stijlen en
+ * tabellen: mailprogramma's gooien losse stijlblokken en moderne layout weg.
+ */
+function dp_toolbox_ml_mail_html( $template, $name, $site, $url, $code, $ttl ) {
+    $font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+    $replace = [
+        '{naam}'       => esc_html( $name ),
+        '{site}'       => esc_html( $site ),
+        '{geldigheid}' => (int) $ttl,
+        '{codeduur}'   => (int) dp_toolbox_ml_code_ttl(),
+        '{code}'       => esc_html( $code ),
+    ];
+
+    $out = '';
+
+    foreach ( preg_split( '/\R{2,}/', trim( $template ) ) as $block ) {
+        $block = trim( $block );
+
+        if ( '' === $block ) {
+            continue;
+        }
+
+        if ( '{code}' === $block && $code ) {
+            $out .= '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:22px 0;">'
+                . '<tr><td align="center" style="padding:22px 12px;background:#f2f3f4;border-radius:12px;">'
+                . '<div style="font-family:' . $font . ';font-size:34px;line-height:1.2;font-weight:700;letter-spacing:8px;color:#1d2327;">'
+                . esc_html( $code ) . '</div></td></tr></table>';
+            continue;
+        }
+
+        if ( '{link}' === $block ) {
+            $out .= '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:22px 0;">'
+                . '<tr><td align="center"><a href="' . esc_url( $url ) . '" '
+                . 'style="display:inline-block;padding:13px 28px;border-radius:8px;background:#1d2327;color:#ffffff;'
+                . 'font-family:' . $font . ';font-size:15px;font-weight:600;text-decoration:none;">Inloggen op '
+                . esc_html( $site ) . '</a></td></tr></table>';
+            continue;
+        }
+
+        $html = strtr( nl2br( esc_html( $block ) ), $replace );
+        $html = str_replace( '{link}', '<a href="' . esc_url( $url ) . '" style="color:#2271b1;">' . esc_html( $url ) . '</a>', $html );
+
+        $out .= '<p style="margin:0 0 14px;font-family:' . $font . ';font-size:15px;line-height:1.6;color:#1d2327;">' . $html . '</p>';
+    }
+
+    return '<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8">'
+        . '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'
+        . '<body style="margin:0;padding:24px 12px;background:#f6f7f7;">'
+        . '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center">'
+        . '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" '
+        . 'style="max-width:520px;background:#ffffff;border-radius:14px;">'
+        . '<tr><td style="padding:30px 28px;">' . $out . '</td></tr></table>'
+        . '</td></tr></table></body></html>';
+}
+
 function dp_toolbox_ml_send_mail( $user, $url, $ttl, $code = '' ) {
     $site = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
     $name = $user->first_name ? $user->first_name : $user->display_name;
+
+    $template = dp_toolbox_ml_resolve_body( (string) dp_toolbox_ml_setting( 'mail_body' ), (bool) $code );
 
     $replace = [
         '{naam}'       => $name,
@@ -369,41 +589,36 @@ function dp_toolbox_ml_send_mail( $user, $url, $ttl, $code = '' ) {
     ];
 
     $subject = strtr( (string) dp_toolbox_ml_setting( 'mail_subject' ), $replace );
-
-    /*
-     * Eerst de regels weghalen die niet van toepassing zijn, DAARNA pas invullen.
-     * Staat de module op "alleen code", dan hoort er geen kale regel met een
-     * verdwenen link te blijven staan — en andersom net zo.
-     */
-    $template = (string) dp_toolbox_ml_setting( 'mail_body' );
-
-    /*
-     * Sites die vóór versie 1.3.0 hun mailtekst hebben opgeslagen kennen {code}
-     * nog niet. Zonder deze regel krijgt de klant dan wél een code toegestuurd
-     * die nergens in de mail staat — een stille fout die je pas ontdekt als
-     * iemand belt. Ontbreekt de plaatshouder, dan plakken we hem er zelf achter.
-     */
-    if ( $code && strpos( $template, '{code}' ) === false ) {
-        $template = rtrim( $template ) . "\n\n" . 'Liever overtikken? Gebruik deze code: {code}';
-    }
-
-    if ( ! $code ) {
-        $template = preg_replace( '/^.*\{code\}.*$\R?/m', '', $template );
-    }
-
-    if ( ! dp_toolbox_ml_wants_link() ) {
-        $template = preg_replace( '/^.*\{link\}.*$\R?/m', '', $template );
-    }
-
-    $body = strtr( $template, $replace );
+    $text    = strtr( $template, $replace );
+    $html    = dp_toolbox_ml_mail_html( $template, $name, $site, $url, $code, $ttl );
 
     /**
      * Laat de mail per site aanpassen zonder de module te hoeven forken.
      */
     $subject = apply_filters( 'dp_toolbox_ml_mail_subject', $subject, $user, $url );
-    $body    = apply_filters( 'dp_toolbox_ml_mail_body', $body, $user, $url );
+    $text    = apply_filters( 'dp_toolbox_ml_mail_body', $text, $user, $url );
+    $html    = apply_filters( 'dp_toolbox_ml_mail_html', $html, $user, $url, $text );
 
-    wp_mail( $user->user_email, $subject, $body );
+    /*
+     * De platte tekst gaat als alternatief mee in dezelfde mail. Dat is niet
+     * alleen netjes voor wie geen HTML toont: spamfilters wegen een HTML-mail
+     * zonder tekstversie zwaarder, en een inlogmail die in de spambox belandt
+     * is een inlogmail die niet bestaat.
+     */
+    $type = function () {
+        return 'text/html';
+    };
+    $alt = function ( $phpmailer ) use ( $text ) {
+        $phpmailer->AltBody = $text;
+    };
+
+    add_filter( 'wp_mail_content_type', $type );
+    add_action( 'phpmailer_init', $alt );
+
+    wp_mail( $user->user_email, $subject, $html );
+
+    remove_action( 'phpmailer_init', $alt );
+    remove_filter( 'wp_mail_content_type', $type );
 }
 
 /* ================================================================== */
@@ -430,13 +645,24 @@ function dp_toolbox_ml_verify( $uid, $token ) {
         return $generic;
     }
 
-    $stored = get_user_meta( $uid, '_dp_magic_login', true );
-    if ( ! is_array( $stored ) || empty( $stored['hash'] ) ) {
+    $stored = dp_toolbox_ml_stored( $uid );
+    if ( ! $stored ) {
+        return $generic;
+    }
+
+    if ( empty( $stored['hash'] ) ) {
+        if ( ! empty( $stored['link_used'] ) ) {
+            return new WP_Error( 'dp_ml_link_used', 'Deze inloglink is al gebruikt. Vraag hieronder een nieuwe aan.' );
+        }
         return $generic;
     }
 
     if ( empty( $stored['expires'] ) || time() > (int) $stored['expires'] ) {
-        delete_user_meta( $uid, '_dp_magic_login' );
+        // Verlopen is iets anders dan gebruikt: geen link_used-spoor zetten,
+        // anders krijgt het lid straks de verkeerde uitleg te lezen.
+        $stored['hash']    = '';
+        $stored['expires'] = 0;
+        dp_toolbox_ml_store( $uid, $stored );
         return $generic;
     }
 
@@ -456,10 +682,13 @@ function dp_toolbox_ml_consume( $uid, $token ) {
         return $user;
     }
 
-    $stored = get_user_meta( $user->ID, '_dp_magic_login', true );
+    $stored = dp_toolbox_ml_stored( $user->ID );
     $target = is_array( $stored ) && ! empty( $stored['redirect'] ) ? $stored['redirect'] : '';
 
-    delete_user_meta( $user->ID, '_dp_magic_login' );
+    // Alleen de link opmaken. Een code uit dezelfde mail blijft geldig, zodat
+    // iemand die hier per ongeluk op zijn telefoon belandt op zijn laptop
+    // gewoon verder kan.
+    dp_toolbox_ml_spend( $user->ID, 'link' );
 
     wp_set_auth_cookie( $user->ID, true, is_ssl() );
     wp_set_current_user( $user->ID );
@@ -514,23 +743,34 @@ function dp_toolbox_ml_consume_code( $code ) {
         return $generic;
     }
 
-    $stored = get_user_meta( $uid, '_dp_magic_login', true );
+    $stored = dp_toolbox_ml_stored( $uid );
 
-    if ( ! is_array( $stored ) || empty( $stored['code_hash'] ) ) {
+    if ( ! $stored ) {
+        return new WP_Error( 'dp_ml_code_gone', 'Deze code is niet meer geldig. Vraag hieronder een nieuwe aan.' );
+    }
+
+    if ( empty( $stored['code_hash'] ) ) {
+        if ( ! empty( $stored['code_used'] ) ) {
+            return new WP_Error( 'dp_ml_code_used', 'Deze code is al gebruikt om in te loggen. Vraag hieronder een nieuwe aan.' );
+        }
         return $generic;
     }
 
     if ( empty( $stored['code_expires'] ) || time() > (int) $stored['code_expires'] ) {
-        delete_user_meta( $uid, '_dp_magic_login' );
+        $stored['code_hash']    = '';
+        $stored['code_expires'] = 0;
+        dp_toolbox_ml_store( $uid, $stored );
         dp_toolbox_ml_clear_binding();
-        return $generic;
+        return new WP_Error( 'dp_ml_code_expired', 'Deze code is verlopen. Vraag hieronder een nieuwe aan.' );
     }
 
     $max      = dp_toolbox_ml_code_attempts();
     $attempts = (int) ( $stored['code_attempts'] ?? 0 );
 
     if ( $attempts >= $max ) {
-        delete_user_meta( $uid, '_dp_magic_login' );
+        $stored['code_hash']    = '';
+        $stored['code_expires'] = 0;
+        dp_toolbox_ml_store( $uid, $stored );
         dp_toolbox_ml_clear_binding();
         return new WP_Error( 'dp_ml_code_burned', 'Te vaak misgetypt. Vraag hieronder een nieuwe code aan.' );
     }
@@ -539,15 +779,17 @@ function dp_toolbox_ml_consume_code( $code ) {
         // De teller staat op de code zelf en niet op het IP-adres: een aanvaller
         // wisselt van IP, maar de code is na vijf pogingen hoe dan ook dood.
         $stored['code_attempts'] = $attempts + 1;
-        update_user_meta( $uid, '_dp_magic_login', $stored );
-
         $over = $max - $stored['code_attempts'];
 
         if ( $over < 1 ) {
-            delete_user_meta( $uid, '_dp_magic_login' );
+            $stored['code_hash']    = '';
+            $stored['code_expires'] = 0;
+            dp_toolbox_ml_store( $uid, $stored );
             dp_toolbox_ml_clear_binding();
             return new WP_Error( 'dp_ml_code_burned', 'Te vaak misgetypt. Vraag hieronder een nieuwe code aan.' );
         }
+
+        dp_toolbox_ml_store( $uid, $stored );
 
         return new WP_Error(
             'dp_ml_code_invalid',
@@ -557,8 +799,8 @@ function dp_toolbox_ml_consume_code( $code ) {
 
     $target = ! empty( $stored['redirect'] ) ? $stored['redirect'] : '';
 
-    delete_user_meta( $uid, '_dp_magic_login' );
-    dp_toolbox_ml_clear_binding();
+    // Alleen de code opmaken; een nog geldige link uit dezelfde mail blijft werken.
+    dp_toolbox_ml_spend( $uid, 'code' );
 
     wp_set_auth_cookie( $user->ID, true, is_ssl() );
     wp_set_current_user( $user->ID );

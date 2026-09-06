@@ -48,7 +48,7 @@ add_action( 'admin_init', function () {
 } );
 
 /**
- * Aantal op dit moment openstaande inloglinks.
+ * Aantal op dit moment openstaande inloglinks en codes.
  */
 function dp_toolbox_ml_count_pending() {
     global $wpdb;
@@ -60,7 +60,14 @@ function dp_toolbox_ml_count_pending() {
     $open = 0;
     foreach ( (array) $rows as $raw ) {
         $data = maybe_unserialize( $raw );
-        if ( is_array( $data ) && ! empty( $data['expires'] ) && time() <= (int) $data['expires'] ) {
+        if ( ! is_array( $data ) ) {
+            continue;
+        }
+
+        $link = ! empty( $data['expires'] ) && time() <= (int) $data['expires'];
+        $code = ! empty( $data['code_expires'] ) && time() <= (int) $data['code_expires'];
+
+        if ( $link || $code ) {
             $open++;
         }
     }
@@ -136,13 +143,14 @@ function dp_toolbox_ml_render_inline() {
                     <div class="dp-ml-grow">
                         <h3>Wat sturen we mee?</h3>
                         <p class="desc" style="margin-bottom:0;">
-                            Een link is het snelst, maar werkt slecht als de mail op een ander
-                            apparaat binnenkomt dan waar iemand verder wil. Een code van zes cijfers
-                            tik je gewoon over. Allebei sturen dekt beide situaties.
+                            Een code van zes cijfers werkt altijd op het scherm waar iemand
+                            begonnen is, ook als de mail op zijn telefoon binnenkomt. Een link is
+                            één klik, maar logt iemand in op het apparaat waar hij hem opent — en
+                            dat is lang niet altijd het apparaat waar hij verder wilde.
                         </p>
                     </div>
                     <select name="dp_toolbox_magic_login[method]">
-                        <?php foreach ( [ 'both' => 'Link én code', 'link' => 'Alleen een link', 'code' => 'Alleen een code' ] as $waarde => $label ) : ?>
+                        <?php foreach ( [ 'code' => 'Alleen een code', 'both' => 'Code én link', 'link' => 'Alleen een link' ] as $waarde => $label ) : ?>
                             <option value="<?php echo esc_attr( $waarde ); ?>" <?php selected( $s['method'], $waarde ); ?>>
                                 <?php echo esc_html( $label ); ?>
                             </option>
@@ -256,8 +264,12 @@ function dp_toolbox_ml_render_inline() {
                 <h3>De e-mail</h3>
                 <p class="desc dp-ml-tokens">
                     Beschikbaar: <code>{naam}</code><code>{link}</code><code>{code}</code><code>{site}</code><code>{geldigheid}</code><code>{codeduur}</code>
-                    <br>Een regel met <code>{link}</code> of <code>{code}</code> verdwijnt vanzelf uit de mail
-                    wanneer die manier niet aanstaat, zodat er geen kale regel achterblijft.
+                    <br>Zet wat alleen over de code gaat tussen <code>[code]</code> en <code>[/code]</code>,
+                    en wat alleen over de link gaat tussen <code>[link]</code> en <code>[/link]</code>.
+                    Staat die manier uit, dan verdwijnt het hele blok — niet alleen de regel met de
+                    plaatshouder, maar ook de zin die hem aankondigt.
+                    <br>Een alinea die alleen uit <code>{code}</code> of <code>{link}</code> bestaat, wordt
+                    in de mail een groot gecentreerd blok of een knop.
                 </p>
                 <input type="text" name="dp_toolbox_magic_login[mail_subject]"
                        value="<?php echo esc_attr( $s['mail_subject'] ); ?>"
