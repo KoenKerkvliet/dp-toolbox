@@ -128,7 +128,13 @@ function dp_toolbox_btt_css() {
         . '.dp-totop svg{width:' . $icon . 'px;height:' . $icon . 'px;stroke:' . esc_attr( $s['icon_color'] ) . ';'
         . 'fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}'
         . 'html.dp-no-anchor,html.dp-no-anchor *{overflow-anchor:none!important}'
-        . '@media print{.dp-totop{display:none}}';
+        . '@media print{.dp-totop{display:none}}'
+        // Wegblijven zolang er een lightbox open staat. Fancybox zet een class op
+        // <html> (v5) of <body> (v3/v4); PhotoSwipe gebruikt .pswp--open.
+        . '.with-fancybox .dp-totop,body.fancybox-active .dp-totop,body.compensate-for-scrollbar .dp-totop{display:none!important}'
+        // Bewust een losse regel: een browser die :has() niet kent, gooit een hele
+        // selectorlijst weg - dan zou de regel hierboven meesneuvelen.
+        . 'html:has(.pswp--open) .dp-totop{display:none!important}';
 
     if ( $s['hide_mobile'] ) {
         $css .= '@media (max-width:520px){.dp-totop{display:none}}';
