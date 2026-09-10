@@ -1,21 +1,22 @@
 <?php
 /**
  * Module Name: FluentCart Verkoopelementen
- * Description: De kleine dingen die een winkel verkopend maken, naar het model van bol.com: badges op de productkaarten (Aanbieding, Nieuw, nog N op voorraad), een bezorgbelofte boven de koopknop en een vinkjeslijst eronder, en het voorraadlabel onder de prijs. Elk onderdeel apart aan of uit.
+ * Description: De kleine dingen die een winkel verkopend maken, naar het model van bol.com: badges op de productkaarten (Aanbieding, Nieuw, nog N op voorraad), kleurstalen bij producten die in meerdere kleuren te koop zijn, een bezorgbelofte boven de koopknop en een vinkjeslijst eronder, en het voorraadlabel onder de prijs. Elk onderdeel apart aan of uit.
  * Category: ecommerce
  * Requires: fluent-cart
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DP_FCVE_VERSION', '1.0.0' );
+define( 'DP_FCVE_VERSION', '1.1.0' );
 
 function dp_fcve_standaarden() {
 	return [
 		'badges'        => true,
+		'kleurstalen'   => true,
 		'voorraadlabel' => true,
 		'bezorging'     => true,
 		'usp'           => true,
@@ -262,7 +263,195 @@ if ( dp_fcve_aan( 'badges' ) ) {
 }
 
 /* ================================================================== */
-/*  2, 3 en 4. Bezorgbelofte, koopvoordelen en het voorraadlabel       */
+/*  2. Kleurstalen op productkaarten                                   */
+/* ================================================================== */
+
+/**
+ * Bolletjes linksonder op de productfoto met de kleuren waaruit de klant kan
+ * kiezen. Alleen bij producten met minstens twee kleurvarianten.
+ *
+ * Bron zijn uitsluitend FluentCarts eigen varianten (advanced variations met een
+ * attribuutgroep van het type "color"). De kleurtaxonomie van het winkelfilter
+ * telt bewust niet mee: die zegt hoe een product eruitziet, niet waaruit je kunt
+ * kiezen — een tweekleurige vaas is niet "in twee kleuren verkrijgbaar".
+ */
+
+/**
+ * Alle kleurtermen uit attribuutgroepen van het type "color", als
+ * term-id => [ naam, hex ]. Eén query per request, hoeveel kaarten er ook staan.
+ */
+function dp_fcve_variant_kleurtermen() {
+	static $termen = null;
+
+	if ( $termen !== null ) {
+		return $termen;
+	}
+
+	global $wpdb;
+
+	$termen = [];
+	$rijen  = $wpdb->get_results(
+		"SELECT t.id, t.title, t.settings AS term_settings, g.settings AS groep_settings
+		 FROM {$wpdb->prefix}fct_atts_terms t
+		 INNER JOIN {$wpdb->prefix}fct_atts_groups g ON g.id = t.group_id"
+	);
+
+	foreach ( (array) $rijen as $rij ) {
+		$groep = json_decode( (string) $rij->groep_settings, true );
+
+		if ( ! is_array( $groep ) || ( $groep['type'] ?? '' ) !== 'color' ) {
+			continue;
+		}
+
+		$term = json_decode( (string) $rij->term_settings, true );
+		$hex  = is_array( $term ) ? sanitize_hex_color( (string) ( $term['color'] ?? '' ) ) : '';
+
+		if ( $hex ) {
+			$termen[ (int) $rij->id ] = [ (string) $rij->title, $hex ];
+		}
+	}
+
+	return $termen;
+}
+
+/**
+ * De kiesbare kleuren van een product, in de volgorde van de varianten (dus de
+ * standaardkleur eerst), als lijst van [ naam, hex ].
+ *
+ * Leest alleen wat ShopResource al eager-laadt: `variation_identifier` is de
+ * underscore-join van de term-id's van een variant. Geen query per kaart.
+ */
+function dp_fcve_kaart_kleuren( $product ) {
+	$kleuren = [];
+
+	if ( ! $product || empty( $product->detail ) || empty( $product->variants ) ) {
+		return $kleuren;
+	}
+
+	if ( $product->detail->variation_type === 'advanced_variations' ) {
+		$termen    = dp_fcve_variant_kleurtermen();
+		$varianten = [];
+
+		foreach ( $product->variants as $variant ) {
+			// Een uitgeschakelde variant is niet te koop, dus ook geen keuze.
+			if ( isset( $variant->item_status ) && $variant->item_status !== 'active' ) {
+				continue;
+			}
+
+			$varianten[] = $variant;
+		}
+
+		usort( $varianten, function ( $a, $b ) {
+			return (int) $a->serial_index <=> (int) $b->serial_index;
+		} );
+
+		foreach ( $varianten as $variant ) {
+			foreach ( explode( '_', (string) $variant->variation_identifier ) as $term_id ) {
+				$term_id = (int) $term_id;
+
+				if ( isset( $termen[ $term_id ] ) && ! isset( $kleuren[ $term_id ] ) ) {
+					$kleuren[ $term_id ] = $termen[ $term_id ];
+				}
+			}
+		}
+	}
+
+	$kleuren = apply_filters( 'dp_fc_kaart_kleuren', array_values( $kleuren ), $product );
+
+	return is_array( $kleuren ) ? $kleuren : [];
+}
+
+if ( dp_fcve_aan( 'kleurstalen' ) ) {
+
+	// Ná de afbeelding, zodat de rij in de flow direct onder de foto staat en er
+	// met een negatieve marge overheen kan schuiven — zie de CSS.
+	add_action( 'fluent_cart/product/group/after_image_block', function ( $context ) {
+		$product = is_array( $context ) ? ( $context['product'] ?? null ) : null;
+		$kleuren = dp_fcve_kaart_kleuren( $product );
+
+		// Eén kleur is geen keuze; die zie je al op de foto.
+		if ( count( $kleuren ) < 2 ) {
+			return;
+		}
+
+		// Meer bolletjes dan dit wordt een streepjescode. Daarboven: laatste plek
+		// wordt "+N", zodat de rij nooit breder wordt dan bij het maximum.
+		$max     = max( 2, (int) apply_filters( 'dp_fc_kleurstalen_max', 5, $product ) );
+		$aantal  = count( $kleuren );
+		$tonen   = $aantal > $max ? array_slice( $kleuren, 0, $max - 1 ) : $kleuren;
+		$overige = $aantal - count( $tonen );
+		$namen   = implode( ', ', array_map( function ( $kleur ) {
+			return $kleur[0];
+		}, $kleuren ) );
+
+		printf(
+			'<div class="dp-fc-kleuren" role="img" aria-label="%s">',
+			esc_attr( sprintf( 'Verkrijgbaar in %1$d kleuren: %2$s', $aantal, $namen ) )
+		);
+
+		foreach ( $tonen as $kleur ) {
+			printf(
+				'<span class="dp-fc-kleur" style="--dp-fc-kleur:%1$s" title="%2$s"></span>',
+				esc_attr( $kleur[1] ),
+				esc_attr( $kleur[0] )
+			);
+		}
+
+		if ( $overige > 0 ) {
+			printf( '<span class="dp-fc-kleuren__meer">+%d</span>', (int) $overige );
+		}
+
+		echo '</div>';
+	}, 10 );
+
+	add_action( 'wp_head', function () {
+		?>
+<style id="dp-fc-kleuren-css">
+/* De rij staat in de flow direct ná de productfoto. De negatieve bovenmarge
+   (eigen hoogte + afstand) trekt hem over de onderrand van de foto, de
+   ondermarge geeft die afstand terug: netto neemt de rij nul ruimte in. Zo
+   hoeven we de wikkel rond de foto niet te kennen — die verschilt tussen
+   FluentCarts eigen kaart en het Bricks-element — en schuiven titel en prijs
+   niet op ten opzichte van kaarten zonder kleuren. */
+.dp-fc-kleuren {
+	--dp-fc-kleuren-h: 1.5rem;
+	--dp-fc-kleuren-afstand: var(--space-xs, .5rem);
+	position: relative;
+	z-index: 2;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: .3rem;
+	width: max-content;
+	height: var(--dp-fc-kleuren-h);
+	margin: calc(-1 * (var(--dp-fc-kleuren-h) + var(--dp-fc-kleuren-afstand))) 0 var(--dp-fc-kleuren-afstand) var(--dp-fc-kleuren-afstand);
+	padding-inline: .45rem;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, .92);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+	line-height: 1;
+}
+/* Ring naar binnen, zodat roomwit en wit niet oplossen in de witte pil. */
+.dp-fc-kleur {
+	flex: 0 0 auto;
+	width: .875rem;
+	height: .875rem;
+	border-radius: 50%;
+	background: var(--dp-fc-kleur, #ccc);
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .22);
+}
+.dp-fc-kleuren__meer {
+	font-size: var(--text-xs, .75rem);
+	font-weight: 600;
+	color: var(--base, #1a1a1a);
+}
+</style>
+		<?php
+	}, 20 );
+}
+
+/* ================================================================== */
+/*  3, 4 en 5. Bezorgbelofte, koopvoordelen en het voorraadlabel       */
 /* ================================================================== */
 
 /**

@@ -167,6 +167,20 @@ function dp_fcve_render_inline() {
 
 			<div class="dp-fcve-blok">
 				<label class="dp-fcve-kop">
+					<input type="checkbox" name="dp_fc_verkoopelementen[kleurstalen]" value="1" <?php checked( ! empty( $s['kleurstalen'] ) ); ?>>
+					Kleurstalen op productkaarten
+				</label>
+				<p>
+					Bolletjes linksonder op de productfoto met de kleuren waaruit de klant kan kiezen. Ze
+					komen uit FluentCarts kleurvarianten (een attribuutgroep van het type Kleur) en
+					verschijnen alleen bij producten met minstens twee kleurvarianten; naam en kleur komen
+					uit de attribuutterm. De kleurtaxonomie van het winkelfilter telt bewust niet mee: die
+					zegt hoe een product eruitziet, niet waaruit je kunt kiezen.
+				</p>
+			</div>
+
+			<div class="dp-fcve-blok">
+				<label class="dp-fcve-kop">
 					<input type="checkbox" name="dp_fc_verkoopelementen[voorraadlabel]" value="1" <?php checked( ! empty( $s['voorraadlabel'] ) ); ?>>
 					Voorraadlabel onder de prijs
 				</label>
