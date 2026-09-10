@@ -116,6 +116,17 @@ add_filter( 'wp_handle_upload', function ( $upload ) {
     $new_file_path = $file_info['dirname'] . '/' . $new_filename;
 
     $saved_image = $image_editor->save( $new_file_path, 'image/webp', [ 'quality' => 80 ] );
+
+    // GD kan een PNG met kleurenpalet niet naar webp schrijven: imagewebp() geeft
+    // alleen een warning, save() meldt toch succes en er staat een bestand van
+    // 0 bytes. Zonder deze controle werd daarna het origineel verwijderd en was
+    // de upload stil verloren. Bij een ongeldig resultaat: webp weg, origineel houden.
+    if ( ! is_wp_error( $saved_image ) && file_exists( $saved_image['path'] )
+         && ( filesize( $saved_image['path'] ) === 0 || ! wp_getimagesize( $saved_image['path'] ) ) ) {
+        wp_delete_file( $saved_image['path'] );
+        return $upload;
+    }
+
     if ( ! is_wp_error( $saved_image ) && file_exists( $saved_image['path'] ) ) {
         $upload['file'] = $saved_image['path'];
         $upload['url']  = str_replace( basename( $upload['url'] ), basename( $saved_image['path'] ), $upload['url'] );
@@ -259,10 +270,29 @@ function dp_toolbox_convert_single_image() {
     if ( $new_file_path !== $file_path && file_exists( $new_file_path ) ) {
         $new_file_path = $path_info['dirname'] . '/' . wp_unique_filename( $path_info['dirname'], $path_info['filename'] . '.webp' );
     }
-    $result        = $editor->save( $new_file_path, 'image/webp' );
+    // Altijd eerst naar een tijdelijk bestand: bij in-place verkleinen (doel == bron)
+    // zou een mislukte save het origineel direct overschrijven.
+    $tmp_file_path = $path_info['dirname'] . '/' . $path_info['filename'] . '.dp-tmp-' . wp_generate_password( 6, false ) . '.webp';
+    $result        = $editor->save( $tmp_file_path, 'image/webp' );
 
     if ( is_wp_error( $result ) ) {
         $log[] = "Error (conversion failed): $base_file - " . $result->get_error_message();
+        update_option( 'dp_toolbox_webp_conversion_log', array_slice( $log, -100 ) );
+        wp_send_json_success( [ 'complete' => false, 'offset' => $offset + 1 ] );
+    }
+
+    // GD schrijft bij een PNG met kleurenpalet een webp van 0 bytes en meldt toch
+    // succes. Dan niets omwisselen en het origineel laten staan.
+    if ( ! file_exists( $result['path'] ) || filesize( $result['path'] ) === 0 || ! wp_getimagesize( $result['path'] ) ) {
+        wp_delete_file( $result['path'] );
+        $log[] = "Error (ongeldige webp, origineel behouden): $base_file";
+        update_option( 'dp_toolbox_webp_conversion_log', array_slice( $log, -100 ) );
+        wp_send_json_success( [ 'complete' => false, 'offset' => $offset + 1 ] );
+    }
+
+    if ( ! rename( $result['path'], $new_file_path ) ) {
+        wp_delete_file( $result['path'] );
+        $log[] = "Error (kon webp niet plaatsen): $base_file";
         update_option( 'dp_toolbox_webp_conversion_log', array_slice( $log, -100 ) );
         wp_send_json_success( [ 'complete' => false, 'offset' => $offset + 1 ] );
     }
