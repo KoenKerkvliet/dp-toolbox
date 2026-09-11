@@ -520,3 +520,4 @@ require_once DP_TOOLBOX_PATH . 'includes/branding.php';
 require_once DP_TOOLBOX_PATH . 'includes/admin-ui.php';
 require_once DP_TOOLBOX_PATH . 'includes/settings-page.php';
 require_once DP_TOOLBOX_PATH . 'includes/import-export.php';
+require_once DP_TOOLBOX_PATH . 'includes/dp-menu-groep.php'; // gedeeld met alle DP-plugins
