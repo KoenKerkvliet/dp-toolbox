@@ -3,7 +3,7 @@
  * Module Name: Disable Features
  * Description: Schakel onnodige WordPress-functies uit via een overzichtelijk paneel.
  * Category: admin
- * Version: 1.1.0
+ * Version: 1.1.1
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -166,10 +166,22 @@ add_action( 'init', function () {
     /* --- Frontend --- */
     if ( dp_toolbox_df_is_disabled( 'emoji_scripts' ) ) {
         remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
+        remove_action( 'embed_head', 'print_emoji_detection_script' );
         remove_action( 'wp_print_styles', 'print_emoji_styles' );
-        remove_action( 'admin_print_scripts', 'print_emoji_detection_script' );
-        remove_action( 'admin_print_styles', 'print_emoji_styles' );
+        remove_action( 'wp_enqueue_scripts', 'wp_enqueue_emoji_styles' );
         add_filter( 'emoji_svg_url', '__return_false' );
+        // Klassieke editor: TinyMCE heeft een eigen emoji-plugin die hetzelfde doet.
+        add_filter( 'tiny_mce_plugins', function ( $plugins ) {
+            return array_values( array_diff( (array) $plugins, [ 'wpemoji' ] ) );
+        } );
+        // De wp-admin-haken zet WordPress pas ná 'init' (wp-admin/includes/admin-filters.php).
+        // Hier weghalen werkte dus niet: in wp-admin bleef het script de emoji vervangen door
+        // plaatjes van s.w.org, en die gaven een gebroken plaatje waar s.w.org geblokkeerd is.
+        add_action( 'admin_init', function () {
+            remove_action( 'admin_print_scripts', 'print_emoji_detection_script' );
+            remove_action( 'admin_print_styles', 'print_emoji_styles' );
+            remove_action( 'admin_enqueue_scripts', 'wp_enqueue_emoji_styles' );
+        } );
     }
 
     if ( dp_toolbox_df_is_disabled( 'wp_version' ) ) {
