@@ -1,10 +1,10 @@
 <?php
 /**
- * Design Pixels-menugroep — gedeeld bestand, versie 1.
+ * Design Pixels-menugroep — gedeeld bestand, versie 2.
  *
- * Zet de menu's van alle DP-plugins in de beheerzijbalk bij elkaar, onder een dunne lijn
- * met het label "Design Pixels" (zoals Crocoblock dat met zijn plugins doet). Het blok
- * komt op de plek van het eerste DP-menu; de volgorde daarbinnen blijft zoals hij was
+ * Zet de menu's van alle DP-plugins in de beheerzijbalk bij elkaar, tussen een dunne lijn
+ * met het label "Design Pixels" en een lijn eronder (zoals Crocoblock dat met zijn plugins
+ * doet). Het blok komt op de plek van het eerste DP-menu; de volgorde daarbinnen blijft zoals hij was
  * (ook na slepen in Menu Sorter). De lijn hangt boven het eerste DP-menu dat de gebruiker
  * te zien krijgt, dus een klant ziet hem alleen boven de DP-menu's die hij mag gebruiken.
  *
@@ -13,7 +13,7 @@
  * meldt zijn menu aan met:
  *     add_filter( 'dp_menu_groep', function ( $slugs ) { $slugs[] = 'mijn-menu-slug'; return $slugs; } );
  *
- * Aanpassen? Verhoog dan het versienummer in de functienamen (_1 → _2) en in de sleutel
+ * Aanpassen? Verhoog dan het versienummer in de functienamen (_2 → _3) en in de sleutel
  * van $GLOBALS['dp_menu_groep_versies'], en kopieer het bestand naar alle DP-plugins.
  */
 
@@ -21,19 +21,19 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-$GLOBALS['dp_menu_groep_versies'][1] = 'dp_menu_groep_1_start';
+$GLOBALS['dp_menu_groep_versies'][2] = 'dp_menu_groep_2_start';
 
-if ( ! function_exists( 'dp_menu_groep_1_start' ) ) {
+if ( ! function_exists( 'dp_menu_groep_2_start' ) ) {
 
-    function dp_menu_groep_1_start() {
+    function dp_menu_groep_2_start() {
         add_filter( 'custom_menu_order', '__return_true' );
-        add_filter( 'menu_order', 'dp_menu_groep_1_ordenen', 999 ); // na Menu Sorter en andere plugins
-        add_action( 'admin_head', 'dp_menu_groep_1_css' );
-        add_action( 'adminmenu', 'dp_menu_groep_1_kleur' );         // direct na het menu
+        add_filter( 'menu_order', 'dp_menu_groep_2_ordenen', 999 ); // na Menu Sorter en andere plugins
+        add_action( 'admin_head', 'dp_menu_groep_2_css' );
+        add_action( 'adminmenu', 'dp_menu_groep_2_kleur' );         // direct na het menu
     }
 
     /** Menu-slugs van de DP-plugins. */
-    function dp_menu_groep_1_slugs() {
+    function dp_menu_groep_2_slugs() {
         $slugs = apply_filters( 'dp_menu_groep', [
             'dp-toolbox',
             'dp-webshop',
@@ -49,10 +49,10 @@ if ( ! function_exists( 'dp_menu_groep_1_start' ) ) {
      * WordPress' eigen filter voor de menuvolgorde: draait nadat alle plugins hun menu's
      * hebben toegevoegd of verborgen, dus we zien precies wat deze gebruiker te zien krijgt.
      */
-    function dp_menu_groep_1_ordenen( $volgorde ) {
+    function dp_menu_groep_2_ordenen( $volgorde ) {
         global $menu;
         $volgorde = array_values( (array) $volgorde );
-        $dp       = array_values( array_intersect( $volgorde, dp_menu_groep_1_slugs() ) );
+        $dp       = array_values( array_intersect( $volgorde, dp_menu_groep_2_slugs() ) );
         if ( ! $dp ) {
             return $volgorde;
         }
@@ -61,17 +61,26 @@ if ( ! function_exists( 'dp_menu_groep_1_start' ) ) {
         $rest = array_values( array_diff( $volgorde, $dp ) );
         array_splice( $rest, $plek, 0, $dp );
 
-        // Klassen voor de opmaak; WordPress zet deze op het <li> van het menu-item.
+        // Klassen voor de opmaak; WordPress zet deze op het <li> van het menu-item. De lijn
+        // onder de groep hangt aan het item ná de groep: zo werkt het ook als de groep uit
+        // één menu bestaat (dat item gebruikt zijn ::before en ::after al voor lijn en label).
+        $na = $rest[ $plek + count( $dp ) ] ?? '';
         foreach ( (array) $menu as $i => $item ) {
-            $slug = $item[2] ?? '';
+            $slug  = $item[2] ?? '';
+            $extra = '';
             if ( in_array( $slug, $dp, true ) ) {
-                $menu[ $i ][4] = trim( ( $item[4] ?? '' ) . ' dp-menu-groep' . ( $slug === $dp[0] ? ' dp-menu-groep-eerste' : '' ) );
+                $extra = ' dp-menu-groep' . ( $slug === $dp[0] ? ' dp-menu-groep-eerste' : '' );
+            } elseif ( $slug !== '' && $slug === $na ) {
+                $extra = ' dp-menu-groep-na';
+            }
+            if ( $extra ) {
+                $menu[ $i ][4] = trim( ( $item[4] ?? '' ) . $extra );
             }
         }
         return $rest;
     }
 
-    function dp_menu_groep_1_css() {
+    function dp_menu_groep_2_css() {
         ?>
         <style id="dp-menu-groep">
             #adminmenu li.dp-menu-groep-eerste { margin-top: 24px; }
@@ -87,12 +96,21 @@ if ( ! function_exists( 'dp_menu_groep_1_start' ) ) {
                 font-size: 9px; font-weight: 600; line-height: 13px; letter-spacing: .08em; text-transform: uppercase;
                 white-space: nowrap; pointer-events: none;
             }
-            /* Ingeklapte zijbalk: alleen de lijn. */
+            /* Lijn onder de groep, boven het eerste menu erna. */
+            #adminmenu li.dp-menu-groep-na { position: relative; margin-top: 13px; }
+            #adminmenu li.dp-menu-groep-na::before {
+                content: ""; position: absolute; left: 12px; right: 12px; top: -7px;
+                border-top: 1px solid var(--dp-menu-lijn, rgba(240, 246, 252, .16));
+                pointer-events: none;
+            }
+            /* Ingeklapte zijbalk: alleen de lijnen. */
             .folded #adminmenu li.dp-menu-groep-eerste::after { display: none; }
-            .folded #adminmenu li.dp-menu-groep-eerste::before { left: 8px; right: 8px; }
+            .folded #adminmenu li.dp-menu-groep-eerste::before,
+            .folded #adminmenu li.dp-menu-groep-na::before { left: 8px; right: 8px; }
             @media only screen and (min-width: 783px) and (max-width: 960px) {
                 .auto-fold #adminmenu li.dp-menu-groep-eerste::after { display: none; }
-                .auto-fold #adminmenu li.dp-menu-groep-eerste::before { left: 8px; right: 8px; }
+                .auto-fold #adminmenu li.dp-menu-groep-eerste::before,
+                .auto-fold #adminmenu li.dp-menu-groep-na::before { left: 8px; right: 8px; }
             }
         </style>
         <?php
@@ -103,7 +121,7 @@ if ( ! function_exists( 'dp_menu_groep_1_start' ) ) {
      * lijn) en bij een licht menu donkere lijn en tekst. Werkt voor elk kleurenschema,
      * ook als een andere plugin het menu zelf inkleurt.
      */
-    function dp_menu_groep_1_kleur() {
+    function dp_menu_groep_2_kleur() {
         ?>
         <script>
         (function () {
