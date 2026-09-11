@@ -2,13 +2,37 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
- * Register inline settings on Modules tab (vervangt vroegere add_submenu_page).
+ * Eigen pagina in de zijbalk: DP Toolbox → Code Snippets. Op de Modules-tab blijft het
+ * tandwiel staan, met een knop naar die pagina.
  */
+add_action( 'admin_menu', function () {
+    add_submenu_page( 'dp-toolbox', 'Code Snippets', 'Code Snippets', 'manage_options', 'dp-toolbox-snippets', 'dp_toolbox_snippets_admin_page' );
+}, 10 );
+
+function dp_toolbox_snippets_admin_url( $args = [] ) {
+    return add_query_arg( $args, admin_url( 'admin.php?page=dp-toolbox-snippets' ) );
+}
+
+function dp_toolbox_snippets_admin_page() {
+    if ( ! dp_toolbox_current_user_has_access() ) {
+        wp_die( 'Je hebt geen toegang tot deze pagina.' );
+    }
+    dp_toolbox_page_start( 'Code Snippets', 'Eigen PHP-, JS- en CSS-snippets voor deze site, zonder mu-plugin of thema-aanpassing.' );
+    echo '<style>.dp-page-wrap { max-width: 1100px; }</style>';
+    dp_toolbox_snippets_admin_render_inline();
+    dp_toolbox_page_end();
+}
+
 add_action( 'admin_init', function () {
     if ( function_exists( 'dp_toolbox_register_module_settings' ) ) {
-        dp_toolbox_register_module_settings( 'code-snippets', 'dp_toolbox_snippets_admin_render_inline', [
+        dp_toolbox_register_module_settings( 'code-snippets', function () {
+            printf(
+                '<p style="margin:0;">De snippets hebben een eigen pagina in de zijbalk. <a class="button button-primary" style="margin-left:8px;" href="%s">Code Snippets openen</a></p>',
+                esc_url( dp_toolbox_snippets_admin_url() )
+            );
+        }, [
             'title'       => 'Code Snippets',
-            'description' => 'Voer eigen PHP-, JS- of CSS-snippets uit zonder een mu-plugin of theme-edit.',
+            'description' => 'Eigen PHP-, JS- en CSS-snippets voor deze site, zonder mu-plugin of thema-aanpassing.',
         ] );
     }
 } );
@@ -54,7 +78,7 @@ function dp_toolbox_snippets_admin_list() {
     $active  = count( array_filter( $snippets, function ( $s ) { return ! empty( $s['active'] ); } ) );
     $errors  = count( array_filter( $snippets, function ( $s ) { return ! empty( $s['has_error'] ); } ) );
 
-    $new_url = admin_url( 'admin.php?page=dp-toolbox&action=edit#settings-code-snippets' );
+    $new_url = admin_url( 'admin.php?page=dp-toolbox-snippets&action=edit' );
     ?>
     <style>
         .dp-sn-stats { display: flex; gap: 12px; margin-bottom: 20px; }
@@ -171,7 +195,7 @@ function dp_toolbox_snippets_admin_list() {
                         return ( (int) ( $a['priority'] ?? 10 ) ) <=> ( (int) ( $b['priority'] ?? 10 ) );
                     } );
                     foreach ( $snippets as $id => $s ) :
-                        $edit_url = admin_url( 'admin.php?page=dp-toolbox&action=edit&id=' . urlencode( $id ) . '#settings-code-snippets' );
+                        $edit_url = admin_url( 'admin.php?page=dp-toolbox-snippets&action=edit&id=' . urlencode( $id ) );
                         $row_class = '';
                         if ( empty( $s['active'] ) ) $row_class .= ' is-inactive';
                         if ( ! empty( $s['has_error'] ) ) $row_class .= ' has-error';
@@ -328,7 +352,7 @@ function dp_toolbox_snippets_admin_edit() {
 
     $nonce    = wp_create_nonce( 'dp_toolbox_snippets' );
     $ajax_url = admin_url( 'admin-ajax.php' );
-    $list_url = admin_url( 'admin.php?page=dp-toolbox#settings-code-snippets' );
+    $list_url = admin_url( 'admin.php?page=dp-toolbox-snippets' );
 
     ?>
     <h3 style="margin:0 0 4px;font-size:14px;font-weight:700;color:#1d2327;">

@@ -410,14 +410,6 @@ function dp_toolbox_check_requirement( $vereist ) {
                     ? 'Vereist WooCommerce. Deze webshop draait op FluentCart.'
                     : 'Vereist WooCommerce. Niet gevonden op deze site.',
             ];
-
-        case 'fluent-cart':
-            return [
-                'met'    => dp_toolbox_fluentcart_is_available(),
-                'reason' => dp_toolbox_woocommerce_is_available()
-                    ? 'Vereist FluentCart. Deze webshop draait op WooCommerce.'
-                    : 'Vereist FluentCart. Niet gevonden op deze site.',
-            ];
     }
 
     return null;
@@ -451,6 +443,21 @@ function dp_toolbox_load_modules() {
     }
 }
 add_action( 'plugins_loaded', 'dp_toolbox_load_modules' );
+
+/**
+ * Sinds 2.58.0 staan de FluentCart-modules en Reviews in de plugin DP Webshop. Stonden
+ * ze hier nog aan en draait DP Webshop niet, dan zijn ze na deze update weg: meld dat.
+ */
+add_action( 'admin_notices', function () {
+    if ( ! dp_toolbox_is_dp_user() || defined( 'DP_WEBSHOP_VERSION' ) ) {
+        return;
+    }
+    $verhuisd = [ 'fluentcart-nederlands', 'fluentcart-productspecificaties', 'fluentcart-verkoopelementen', 'fluentcart-verzenddrempel', 'fluentcart-winkelfixes', 'reviews' ];
+    if ( ! array_intersect( $verhuisd, dp_toolbox_get_enabled_modules() ) ) {
+        return;
+    }
+    echo '<div class="notice notice-warning"><p><strong>DP Toolbox:</strong> de FluentCart-modules en Reviews zijn verhuisd naar de plugin <strong>DP Webshop</strong>. Installeer en activeer DP Webshop; die zet dezelfde modules aan, met de instellingen die hier stonden.</p></div>';
+} );
 
 /**
  * Module conflict notices.
