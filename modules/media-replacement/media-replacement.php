@@ -1,9 +1,9 @@
 <?php
 /**
  * Module Name: Media Replacement
- * Description: Vervang mediabestanden met behoud van ID, datum en bestandsnaam.
+ * Description: Vervang mediabestanden met behoud van ID, datum en bestandsnaam. Een vervangen bestand krijgt overal een nieuwe versie-URL (?v=), zodat een CDN of browser direct de nieuwe versie toont; ook de productfoto-URL's die FluentCart opslaat gaan mee.
  * Category: media
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -128,7 +128,7 @@ add_action( 'wp_ajax_dp_toolbox_replace_media', function () {
     }
 
     wp_send_json_success( [
-        'message' => 'Media succesvol vervangen.',
+        'message' => 'Media succesvol vervangen. De website toont de nieuwe versie direct.',
         'attachment_id' => $old_id,
     ] );
 } );
@@ -195,15 +195,8 @@ function dp_toolbox_mr_do_replace( $old_id, $new_id ) {
     // Delete the temporary new attachment (files + database entries)
     wp_delete_attachment( $new_id, true );
 
-    // Track recently replaced attachments for cache busting
-    $replaced = get_option( 'dp_toolbox_mr_replaced', [] );
-    $replaced[ $old_id ] = time();
-
-    if ( count( $replaced ) > 10 ) {
-        asort( $replaced );
-        $replaced = array_slice( $replaced, -10, 10, true );
-    }
-    update_option( 'dp_toolbox_mr_replaced', $replaced, false );
+    // Nieuwe versie: vanaf nu dragen alle URL's van deze bijlage ?v=<tijdstip>.
+    dp_toolbox_mr_versie_zetten( $old_id, time() );
 
     return true;
 }
@@ -255,72 +248,178 @@ function dp_toolbox_mr_delete_media_files( $attachment_id ) {
 add_filter( 'post_updated_messages', 'dp_toolbox_mr_updated_messages' );
 
 function dp_toolbox_mr_updated_messages( $messages ) {
-    $messages['attachment'][4] = 'Media bijgewerkt. Gebruik Ctrl+Shift+R (hard refresh) als de preview niet direct verandert.';
+    $messages['attachment'][4] = 'Media bijgewerkt. De website toont de nieuwe versie direct (nieuwe versie-URL, ook voor een CDN).';
     return $messages;
 }
 
 /* ------------------------------------------------------------------ */
-/*  Cache busting for recently replaced media                          */
+/*  Versie-URL's (cache busting)                                        */
+/*  Het bestand houdt zijn naam, dus een CDN of browser blijft de oude  */
+/*  kopie geven (de Hostinger-CDN bewaart afbeeldingen 7 dagen, ook in  */
+/*  een privévenster). Daarom krijgen alle URL's van een vervangen      */
+/*  bijlage ?v=<tijdstip van vervangen>, in wp-admin én op de website.  */
+/*  Blijvend: tot de volgende vervanging is de URL stabiel en dus goed  */
+/*  te cachen. Optie dp_toolbox_mr_replaced = [ bijlage-ID => tijd ].   */
 /* ------------------------------------------------------------------ */
 
-add_filter( 'wp_get_attachment_image_src', 'dp_toolbox_mr_cache_bust_src', 10, 2 );
+function dp_toolbox_mr_versie( $attachment_id ) {
+    $versies = get_option( 'dp_toolbox_mr_replaced', [] );
+    return ( is_array( $versies ) && isset( $versies[ (int) $attachment_id ] ) ) ? (int) $versies[ (int) $attachment_id ] : 0;
+}
 
-function dp_toolbox_mr_cache_bust_src( $image, $attachment_id ) {
-    if ( ! is_admin() || ! $image ) {
-        return $image;
+function dp_toolbox_mr_met_versie( $url, $attachment_id ) {
+    $versie = dp_toolbox_mr_versie( $attachment_id );
+    return ( $versie && is_string( $url ) && $url !== '' ) ? add_query_arg( 'v', $versie, $url ) : $url;
+}
+
+/** Na een vervanging: versie vastleggen, opgeslagen URL's bijwerken, paginacache legen. */
+function dp_toolbox_mr_versie_zetten( $attachment_id, $tijd ) {
+    $versies = get_option( 'dp_toolbox_mr_replaced', [] );
+    $versies = is_array( $versies ) ? $versies : [];
+    $versies[ (int) $attachment_id ] = (int) $tijd;
+    foreach ( array_keys( $versies ) as $id ) {
+        if ( get_post_type( $id ) !== 'attachment' ) {
+            unset( $versies[ $id ] ); // verwijderde bijlagen
+        }
     }
+    update_option( 'dp_toolbox_mr_replaced', $versies, false );
 
-    $replaced = get_option( 'dp_toolbox_mr_replaced', [] );
-    if ( ! isset( $replaced[ $attachment_id ] ) ) {
-        return $image;
+    dp_toolbox_mr_opgeslagen_urls( $attachment_id );
+
+    // Gecachte pagina's bevatten nog de URL zonder (nieuwe) versie.
+    do_action( 'litespeed_purge_all' );
+}
+
+add_filter( 'wp_get_attachment_url', 'dp_toolbox_mr_met_versie', 10, 2 );
+
+add_filter( 'wp_get_attachment_image_src', function ( $image, $attachment_id ) {
+    if ( is_array( $image ) && ! empty( $image[0] ) ) {
+        $image[0] = dp_toolbox_mr_met_versie( $image[0], $attachment_id );
     }
-
-    $timestamp = $replaced[ $attachment_id ];
-    $separator = ( strpos( $image[0], '?' ) !== false ) ? '&' : '?';
-    $image[0] .= $separator . 't=' . $timestamp;
-
     return $image;
-}
+}, 10, 2 );
 
-add_filter( 'wp_calculate_image_srcset', 'dp_toolbox_mr_cache_bust_srcset', 10, 5 );
-
-function dp_toolbox_mr_cache_bust_srcset( $sources, $size_array, $image_src, $image_meta, $attachment_id ) {
-    if ( ! is_admin() ) {
-        return $sources;
+add_filter( 'wp_calculate_image_srcset', function ( $sources, $size_array, $image_src, $image_meta, $attachment_id ) {
+    if ( is_array( $sources ) && dp_toolbox_mr_versie( $attachment_id ) ) {
+        foreach ( $sources as &$bron ) {
+            $bron['url'] = dp_toolbox_mr_met_versie( $bron['url'], $attachment_id );
+        }
+        unset( $bron );
     }
-
-    $replaced = get_option( 'dp_toolbox_mr_replaced', [] );
-    if ( ! isset( $replaced[ $attachment_id ] ) ) {
-        return $sources;
-    }
-
-    $timestamp = $replaced[ $attachment_id ];
-    foreach ( $sources as &$source ) {
-        $separator = ( strpos( $source['url'], '?' ) !== false ) ? '&' : '?';
-        $source['url'] .= $separator . 't=' . $timestamp;
-    }
-
     return $sources;
-}
+}, 10, 5 );
 
-add_filter( 'wp_prepare_attachment_for_js', 'dp_toolbox_mr_cache_bust_js', 10, 2 );
-
-function dp_toolbox_mr_cache_bust_js( $response, $attachment ) {
-    $replaced = get_option( 'dp_toolbox_mr_replaced', [] );
-    if ( ! isset( $replaced[ $attachment->ID ] ) ) {
+add_filter( 'wp_prepare_attachment_for_js', function ( $response, $attachment ) {
+    if ( ! dp_toolbox_mr_versie( $attachment->ID ) ) {
         return $response;
     }
+    $response['url'] = dp_toolbox_mr_met_versie( $response['url'] ?? '', $attachment->ID );
+    if ( ! empty( $response['sizes'] ) && is_array( $response['sizes'] ) ) {
+        foreach ( $response['sizes'] as &$maat ) {
+            $maat['url'] = dp_toolbox_mr_met_versie( $maat['url'] ?? '', $attachment->ID );
+        }
+        unset( $maat );
+    }
+    return $response;
+}, 10, 2 );
 
-    $timestamp = $replaced[ $attachment->ID ];
-    $separator = ( strpos( $response['url'], '?' ) !== false ) ? '&' : '?';
-    $response['url'] .= $separator . 't=' . $timestamp;
+/* Afbeeldingen in de paginatekst hebben een vaste src: die (en de srcset) ook van een versie voorzien. */
+add_filter( 'wp_content_img_tag', function ( $html, $context, $attachment_id ) {
+    $versie = $attachment_id ? dp_toolbox_mr_versie( $attachment_id ) : 0;
+    if ( ! $versie ) {
+        return $html;
+    }
+    $basis = pathinfo( wp_basename( (string) get_post_meta( $attachment_id, '_wp_attached_file', true ) ), PATHINFO_FILENAME );
+    if ( $basis === '' ) {
+        return $html;
+    }
+    return preg_replace_callback(
+        '#(https?://[^\s"\',]*/' . preg_quote( $basis, '#' ) . '(?:-\d+x\d+|-scaled)?\.[a-z0-9]+)(\?[^\s"\',]*)?#i',
+        fn( $m ) => add_query_arg( 'v', $versie, $m[1] . ( $m[2] ?? '' ) ),
+        $html
+    );
+}, 10, 3 );
 
-    if ( ! empty( $response['sizes'] ) ) {
-        foreach ( $response['sizes'] as &$size ) {
-            $sep = ( strpos( $size['url'], '?' ) !== false ) ? '&' : '?';
-            $size['url'] .= $sep . 't=' . $timestamp;
+/**
+ * FluentCart bewaart productfoto's als volledige URL (galerij, standaardfoto, per variant),
+ * niet alleen als ID. Die opgeslagen URL's krijgen de versie mee, anders toont de productpagina
+ * de oude kopie uit de CDN.
+ */
+function dp_toolbox_mr_opgeslagen_urls( $attachment_id ) {
+    global $wpdb;
+    $bestand = (string) get_post_meta( $attachment_id, '_wp_attached_file', true );
+    if ( $bestand === '' || ! dp_toolbox_mr_versie( $attachment_id ) ) {
+        return 0;
+    }
+    $url  = wp_get_attachment_url( $attachment_id ); // al met ?v=
+    $zoek = '%' . $wpdb->esc_like( wp_basename( $bestand ) ) . '%';
+    $zet  = function ( $data ) use ( &$zet, $attachment_id, $url ) {
+        if ( ! is_array( $data ) ) {
+            return $data;
+        }
+        if ( isset( $data['id'], $data['url'] ) && (int) $data['id'] === (int) $attachment_id ) {
+            $data['url'] = $url;
+        }
+        foreach ( $data as $sleutel => $waarde ) {
+            if ( is_array( $waarde ) ) {
+                $data[ $sleutel ] = $zet( $waarde );
+            }
+        }
+        return $data;
+    };
+    $n = 0;
+
+    // Galerij (post meta)
+    foreach ( $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = 'fluent-products-gallery-image' AND meta_value LIKE %s", $zoek ) ) as $rij ) {
+        $oud   = maybe_unserialize( $rij->meta_value );
+        $nieuw = $zet( $oud );
+        if ( $nieuw !== $oud ) {
+            update_metadata_by_mid( 'post', (int) $rij->meta_id, $nieuw );
+            $n++;
         }
     }
 
-    return $response;
+    // FluentCart-tabellen (JSON), alleen als ze bestaan
+    $tabellen = [
+        $wpdb->prefix . 'fct_product_details' => [ 'id', 'default_media', '' ],
+        $wpdb->prefix . 'fct_product_meta'    => [ 'id', 'meta_value', "AND meta_key = 'product_thumbnail'" ],
+    ];
+    foreach ( $tabellen as $tabel => [ $sleutel, $kolom, $extra ] ) {
+        if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $tabel ) ) !== $tabel ) {
+            continue;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- tabel- en kolomnamen staan hierboven vast
+        foreach ( $wpdb->get_results( $wpdb->prepare( "SELECT {$sleutel} AS k, {$kolom} AS v FROM {$tabel} WHERE {$kolom} LIKE %s {$extra}", $zoek ) ) as $rij ) {
+            $oud = json_decode( (string) $rij->v, true );
+            if ( ! is_array( $oud ) ) {
+                continue;
+            }
+            $nieuw = $zet( $oud );
+            if ( $nieuw !== $oud ) {
+                $wpdb->update( $tabel, [ $kolom => wp_json_encode( $nieuw ) ], [ $sleutel => $rij->k ] );
+                $n++;
+            }
+        }
+    }
+    return $n;
 }
+
+/*
+ * Eenmalig na de update naar 1.1.0: bijlagen die al eerder vervangen waren, krijgen hun
+ * opgeslagen URL's alsnog bijgewerkt (vóór 1.1.0 kregen alleen de admin-URL's een versie).
+ */
+add_action( 'init', function () {
+    if ( get_option( 'dp_toolbox_mr_versie_urls' ) === '1.1.0' ) {
+        return;
+    }
+    update_option( 'dp_toolbox_mr_versie_urls', '1.1.0', false );
+    $versies = get_option( 'dp_toolbox_mr_replaced', [] );
+    foreach ( is_array( $versies ) ? array_keys( $versies ) : [] as $id ) {
+        if ( get_post_type( $id ) === 'attachment' ) {
+            dp_toolbox_mr_opgeslagen_urls( (int) $id );
+        }
+    }
+    if ( $versies ) {
+        do_action( 'litespeed_purge_all' );
+    }
+}, 20 );
