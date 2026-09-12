@@ -179,6 +179,17 @@ function dp_toolbox_get_checklist_groups() {
                     'fix'   => admin_url( 'nav-menus.php' ),
                     'fix_label' => 'Menu\'s',
                 ],
+                [
+                    'id'    => 'geen_opvultekst',
+                    'label' => 'Geen opvultekst (lorem ipsum) meer',
+                    'desc'  => 'Zoekt in pagina\'s, producten, velden, menu\'s, termen en instellingen.',
+                    'check' => fn() => ! function_exists( 'dp_toolbox_opvultekst_vindplaatsen' ) || ! dp_toolbox_opvultekst_vindplaatsen(),
+                    // Het overzicht staat bij de module Lorem ipsum; staat die uit, dan de eerste vindplaats.
+                    'fix'   => dp_toolbox_is_module_enabled( 'lorem-ipsum' ) || ! function_exists( 'dp_toolbox_opvultekst_vindplaatsen' )
+                        ? admin_url( 'admin.php?page=dp-toolbox#settings-lorem-ipsum' )
+                        : ( dp_toolbox_opvultekst_vindplaatsen()[0]['link'] ?? admin_url( 'edit.php?post_type=page' ) ),
+                    'fix_label' => dp_toolbox_is_module_enabled( 'lorem-ipsum' ) ? 'Vindplaatsen' : 'Eerste vindplaats',
+                ],
             ],
         ],
 

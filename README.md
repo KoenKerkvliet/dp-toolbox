@@ -16,6 +16,7 @@ Design Pixels gereedschapskist voor WordPress. Een modulaire verzameling van sit
 - **Custom Login URL** — Verplaats wp-login.php naar eigen URL
 - **Maintenance Mode** — Site offline voor bezoekers
 - **Revision Limiter** — Beperk aantal post-revisies
+- **Lorem ipsum** — Voor de bouwfase: typ `{ipsum2p}` (alinea's), `{ipsum3s}` (zinnen) of `{ipsum5w}` (woorden) in een veld en de opvultekst staat er meteen; werkt in wp-admin, Gutenberg, TinyMCE, JetEngine, FluentCart en de Bricks-builder. Toont waar nog opvultekst staat; de Oplevercheck controleert het ook.
 - **Etch GSAP** — GSAP + ScrollTrigger op Etch-sites, met een kleine set scroll-animaties via `data-dp-anim` / `data-dp-stagger`. Alleen in te schakelen wanneer Etch actief is; op Bricks-sites wordt er niets geladen.
 - **Attribute Pricing** (WooCommerce) — Extra options tab op simpele producten met meerprijs per attribuut-waarde, zonder variaties
 - **Free Shipping Bar** (WooCommerce) — Voortgangsbalk "Nog €X tot gratis verzending" in cart en mini-cart
