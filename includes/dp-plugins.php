@@ -420,8 +420,9 @@ add_filter( 'plugins_api', function ( $res, $action, $args ) {
             'description' => '<p>' . esc_html( $p['description'] ?? '' ) . '</p>'
                 . '<p>Deze plugin wordt bijgewerkt via het eigen update-kanaal van Design Pixels (DP Toolbox → DP Plugins). Elk pakket is gecontroleerd tegen een ondertekende versielijst.</p>',
         ],
-        'icons'         => [ '1x' => $icoon, '2x' => $icoon ],
-        'banners'       => [],
+        'icons'            => [ '1x' => $icoon, '2x' => $icoon ],
+        'banners'          => [],
+        'requires_plugins' => [], // install-scherm van WP 6.5+ leest dit veld
     ];
 }, 999, 3 );
 
@@ -491,96 +492,77 @@ add_action( 'wp_ajax_dp_toolbox_dpp', function () {
     if ( ! $p ) {
         wp_send_json_error( [ 'message' => 'Onbekende plugin.' ] );
     }
-    $file = $p['file'];
 
-    require_once ABSPATH . 'wp-admin/includes/file.php';
-    require_once ABSPATH . 'wp-admin/includes/misc.php';
-    require_once ABSPATH . 'wp-admin/includes/plugin.php';
-    require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
-
-    $geinstalleerd = file_exists( WP_PLUGIN_DIR . '/' . $file );
-
-    $skin_fout = function ( $upgrader, $result, $standaard ) {
-        if ( is_wp_error( $result ) ) {
-            return $result->get_error_message();
+    if ( 'automatisch' === $doe ) {
+        if ( ! current_user_can( 'update_plugins' ) || ! wp_is_auto_update_enabled_for_type( 'plugin' ) ) {
+            wp_send_json_error( [ 'message' => 'Automatisch bijwerken is op deze site niet beschikbaar.' ] );
         }
-        $fouten = $upgrader->skin->get_errors();
-        return is_wp_error( $fouten ) && $fouten->has_errors() ? $fouten->get_error_message() : $standaard;
-    };
-
-    switch ( $doe ) {
-        case 'installeren':
-            if ( ! current_user_can( 'install_plugins' ) ) {
-                wp_send_json_error( [ 'message' => 'Geen rechten om plugins te installeren.' ] );
-            }
-            if ( $geinstalleerd ) {
-                wp_send_json_success();
-            }
-            $url = dp_toolbox_dpp_pakket_url( $slug );
-            if ( is_wp_error( $url ) ) {
-                wp_send_json_error( [ 'message' => $url->get_error_message() ] );
-            }
-            $upgrader = new Plugin_Upgrader( new WP_Ajax_Upgrader_Skin() );
-            $result   = $upgrader->install( $url );
-            if ( true !== $result ) {
-                wp_send_json_error( [ 'message' => 'Installatie mislukt: ' . $skin_fout( $upgrader, $result, 'onbekende fout (vraagt de server om FTP-gegevens?)' ) ] );
-            }
-            wp_send_json_success();
-
-        case 'bijwerken':
-            if ( ! current_user_can( 'update_plugins' ) ) {
-                wp_send_json_error( [ 'message' => 'Geen rechten om plugins bij te werken.' ] );
-            }
-            if ( ! $geinstalleerd ) {
-                wp_send_json_error( [ 'message' => 'Niet geïnstalleerd.' ] );
-            }
-            $was_actief = is_plugin_active( $file );
-            $upgrader   = new Plugin_Upgrader( new WP_Ajax_Upgrader_Skin() );
-            $result     = $upgrader->upgrade( $file );
-            if ( true !== $result ) {
-                wp_send_json_error( [ 'message' => 'Bijwerken mislukt: ' . $skin_fout( $upgrader, $result, 'onbekende fout' ) ] );
-            }
-
-            // Plugin_Upgrader deactiveert een actieve plugin vóór het bijwerken;
-            // in wp-admin heractiveert WordPress via een aparte redirect, hier
-            // moeten we dat zelf doen. (Ook bij DP Toolbox zelf: include_once
-            // slaat het al geladen hoofdbestand over, dus geen dubbele functies.)
-            if ( $was_actief && ! is_plugin_active( $file ) ) {
-                $actief = activate_plugin( $file );
-                if ( is_wp_error( $actief ) ) {
-                    wp_send_json_error( [ 'message' => 'Bijgewerkt, maar opnieuw activeren mislukte: ' . $actief->get_error_message() ] );
-                }
-            }
-            wp_send_json_success();
-
-        case 'activeren':
-            if ( ! current_user_can( 'activate_plugins' ) ) {
-                wp_send_json_error( [ 'message' => 'Geen rechten om plugins te activeren.' ] );
-            }
-            if ( ! $geinstalleerd ) {
-                wp_send_json_error( [ 'message' => 'Nog niet geïnstalleerd.' ] );
-            }
-            $actief = activate_plugin( $file );
-            if ( is_wp_error( $actief ) ) {
-                wp_send_json_error( [ 'message' => 'Activeren mislukt: ' . $actief->get_error_message() ] );
-            }
-            wp_send_json_success();
-
-        case 'automatisch':
-            if ( ! current_user_can( 'update_plugins' ) || ! wp_is_auto_update_enabled_for_type( 'plugin' ) ) {
-                wp_send_json_error( [ 'message' => 'Automatisch bijwerken is op deze site niet beschikbaar.' ] );
-            }
-            $lijst = (array) get_site_option( 'auto_update_plugins', [] );
-            $lijst = array_values( array_diff( $lijst, [ $file ] ) );
-            if ( ! empty( $_POST['aan'] ) ) {
-                $lijst[] = $file;
-            }
-            update_site_option( 'auto_update_plugins', $lijst );
-            wp_send_json_success();
+        $lijst = (array) get_site_option( 'auto_update_plugins', [] );
+        $lijst = array_values( array_diff( $lijst, [ $p['file'] ] ) );
+        if ( ! empty( $_POST['aan'] ) ) {
+            $lijst[] = $p['file'];
+        }
+        update_site_option( 'auto_update_plugins', $lijst );
+        wp_send_json_success();
     }
 
     wp_send_json_error( [ 'message' => 'Onbekende actie.' ] );
 } );
+
+/*
+ * LANDMIJN — installeren, bijwerken en activeren gaan bewust NIET via AJAX.
+ *
+ * In 2.64.0 draaide de knop Plugin_Upgrader in een eigen AJAX-verzoek. Git
+ * Updater roept tijdens elke update `check_ajax_referer( 'updates' )` aan
+ * (GU_Trait::get_repo_slugs, zodra er een `action` in $_POST staat) — dat is de
+ * nonce van WordPress' eigen updateknoppen. Die hadden wij niet, dus stopte het
+ * verzoek met "-1", precies tussen het deactiveren van de plugin en het
+ * plaatsen van de nieuwe bestanden: DP Toolbox bleef uitgeschakeld achter.
+ *
+ * Daarom linken de knoppen naar update.php en plugins.php. Dat is de route
+ * waarop elke plugin rekent, en WordPress heractiveert een bijgewerkte actieve
+ * plugin daar zelf — ook DP Toolbox. Onze sha256-controle zit in
+ * upgrader_pre_download en werkt daar net zo.
+ */
+
+/** Adres van WordPress' eigen scherm voor installeren / bijwerken / activeren. */
+function dp_toolbox_dpp_actie_url( $doe, $slug, $file ) {
+    switch ( $doe ) {
+        case 'installeren':
+            return wp_nonce_url( self_admin_url( 'update.php?action=install-plugin&plugin=' . rawurlencode( $slug ) ), 'install-plugin_' . $slug );
+        case 'bijwerken':
+            return wp_nonce_url( self_admin_url( 'update.php?action=upgrade-plugin&plugin=' . rawurlencode( $file ) ), 'upgrade-plugin_' . $file );
+        case 'activeren':
+            return wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $file ) ), 'activate-plugin_' . $file );
+    }
+    return '';
+}
+
+/** "Terug naar DP Plugins" onder het resultaat van WordPress' update-scherm. */
+function dp_toolbox_dpp_terug_link( $acties ) {
+    if ( dp_toolbox_current_user_has_access() ) {
+        $acties['dp_plugins'] = '<a href="' . esc_url( admin_url( 'admin.php?page=dp-toolbox&tab=plugins' ) ) . '" target="_parent">Terug naar DP Plugins</a>';
+    }
+    return $acties;
+}
+
+add_filter( 'update_plugin_complete_actions', function ( $acties, $plugin ) {
+    $record = dp_toolbox_dpp_lijst();
+    foreach ( (array) ( $record['data']['plugins'] ?? [] ) as $p ) {
+        if ( $p['file'] === $plugin ) {
+            return dp_toolbox_dpp_terug_link( $acties );
+        }
+    }
+    return $acties;
+}, 10, 2 );
+
+add_filter( 'install_plugin_complete_actions', function ( $acties, $api, $plugin_file ) {
+    $record = dp_toolbox_dpp_lijst();
+    if ( is_object( $api ) && ! empty( $api->slug ) && ! empty( $record['data']['plugins'][ $api->slug ] ) ) {
+        return dp_toolbox_dpp_terug_link( $acties );
+    }
+    return $acties;
+}, 10, 3 );
 
 /* ------------------------------------------------------------------ */
 /*  Tabblad "DP Plugins"                                                */
@@ -643,10 +625,11 @@ function dp_toolbox_render_plugins_tab() {
         .dp-dpp-knop {
             border-radius: 6px; padding: 5px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
             border: 1px solid #281E5D; background: #281E5D; color: #fff; line-height: 1.6;
+            text-decoration: none; display: inline-block;
         }
-        .dp-dpp-knop:hover { background: #4a3a8a; border-color: #4a3a8a; }
+        .dp-dpp-knop:hover, .dp-dpp-knop:focus { background: #4a3a8a; border-color: #4a3a8a; color: #fff; }
         .dp-dpp-knop.is-licht { background: #fff; color: #281E5D; border-color: #c3c4c7; }
-        .dp-dpp-knop.is-licht:hover { border-color: #281E5D; }
+        .dp-dpp-knop.is-licht:hover, .dp-dpp-knop.is-licht:focus { background: #fff; color: #281E5D; border-color: #281E5D; }
         .dp-dpp-knop[disabled] { opacity: .5; cursor: wait; }
         .dp-dpp-auto { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #50575e; cursor: pointer; }
     </style>
@@ -725,13 +708,13 @@ function dp_toolbox_render_plugins_tab() {
                             <?php echo 'active' === $staat ? 'Actief' : ( 'inactive' === $staat ? 'Geïnstalleerd' : 'Niet geïnstalleerd' ); ?>
                         </span>
                         <?php if ( 'missing' === $staat && ! $php_te_oud ) : ?>
-                            <button type="button" class="dp-dpp-knop" data-doe="installeren">Installeren</button>
+                            <a class="dp-dpp-knop" href="<?php echo esc_url( dp_toolbox_dpp_actie_url( 'installeren', $slug, $p['file'] ) ); ?>">Installeren</a>
                         <?php endif; ?>
-                        <?php if ( $update && ! $php_te_oud ) : ?>
-                            <button type="button" class="dp-dpp-knop" data-doe="bijwerken">Bijwerken</button>
+                        <?php if ( $update && ! $php_te_oud && current_user_can( 'update_plugins' ) ) : ?>
+                            <a class="dp-dpp-knop" href="<?php echo esc_url( dp_toolbox_dpp_actie_url( 'bijwerken', $slug, $p['file'] ) ); ?>">Bijwerken</a>
                         <?php endif; ?>
-                        <?php if ( 'inactive' === $staat ) : ?>
-                            <button type="button" class="dp-dpp-knop is-licht" data-doe="activeren">Activeren</button>
+                        <?php if ( 'inactive' === $staat && current_user_can( 'activate_plugins' ) ) : ?>
+                            <a class="dp-dpp-knop is-licht" href="<?php echo esc_url( dp_toolbox_dpp_actie_url( 'activeren', $slug, $p['file'] ) ); ?>">Activeren</a>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -743,7 +726,7 @@ function dp_toolbox_render_plugins_tab() {
     (function () {
         var ajaxUrl = <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>;
         var nonce   = <?php echo wp_json_encode( $nonce ); ?>;
-        var bezig   = { installeren: 'Installeren…', bijwerken: 'Bijwerken…', activeren: 'Activeren…', vernieuwen: 'Controleren…' };
+        var bezig   = { vernieuwen: 'Controleren…' };
 
         function stuur(doe, slug, extra) {
             var body = new FormData();
@@ -755,10 +738,13 @@ function dp_toolbox_render_plugins_tab() {
             return fetch(ajaxUrl, { method: 'POST', body: body, credentials: 'same-origin' })
                 .then(function (r) { return r.text(); })
                 .then(function (t) {
-                    // Een upgrader kan vóór de JSON al tekst uitsturen; pak het JSON-deel.
-                    var i = t.indexOf('{"success"');
-                    try { return JSON.parse(i >= 0 ? t.slice(i) : t); }
-                    catch (e) { return { success: false, data: { message: 'Onverwacht antwoord van de server.' } }; }
+                    var j = null;
+                    try { j = JSON.parse(t); } catch (e) {}
+                    // "-1" of "0" is ook geldige JSON: een nonce- of rechtencontrole die het verzoek afbrak.
+                    if (!j || typeof j !== 'object') {
+                        return { success: false, data: { message: 'De server brak het verzoek af (' + String(t).slice(0, 40) + '). Herlaad de pagina en probeer het opnieuw.' } };
+                    }
+                    return j;
                 });
         }
 

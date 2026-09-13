@@ -3,7 +3,7 @@
  * Module Name: Plugin Installer
  * Description: Installeer aanbevolen plugins van wordpress.org, activeer in een aparte stap.
  * Category: tools
- * Version: 1.2.0
+ * Version: 1.2.1
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -278,6 +278,10 @@ function dp_toolbox_pi_render_render_inline() {
     (function(){
         const ajaxUrl = <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>;
         const nonce   = <?php echo wp_json_encode( $nonce ); ?>;
+        // De nonce van WordPress' eigen updateknoppen. Git Updater eist die tijdens
+        // elke installatie via AJAX (check_ajax_referer('updates')) en breekt het
+        // verzoek anders af met "-1". WordPress' updates.js stuurt hem ook mee.
+        const updatesNonce = <?php echo wp_json_encode( wp_create_nonce( 'updates' ) ); ?>;
 
         const list     = document.querySelectorAll('.dp-pi-card');
         const logEl    = document.getElementById('dp-pi-log');
@@ -338,6 +342,7 @@ function dp_toolbox_pi_render_render_inline() {
             const body = new FormData();
             body.append('action', action);
             body.append('nonce', nonce);
+            body.append('_ajax_nonce', updatesNonce);
             body.append('slug', slug);
             const r = await fetch(ajaxUrl, { method: 'POST', body: body, credentials: 'same-origin' });
             return r.json();
