@@ -3,7 +3,7 @@
  * Module Name: Magic Login
  * Description: Laat leden inloggen zonder wachtwoord: een code van zes cijfers, een eenmalige link, of allebei in dezelfde mail. Beheerders blijven op wachtwoord.
  * Category: security
- * Version: 1.4.0
+ * Version: 1.5.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -808,8 +808,9 @@ function dp_toolbox_ml_consume_code( $code ) {
 
         dp_toolbox_ml_store( $uid, $stored );
 
+        // Eigen foutcode: deze code leeft nog, dus het aanvraagformulier blijft ingeklapt.
         return new WP_Error(
-            'dp_ml_code_invalid',
+            'dp_ml_code_wrong',
             sprintf( 'Die code klopt niet. Je hebt nog %d %s.', $over, 1 === $over ? 'poging' : 'pogingen' )
         );
     }
@@ -885,6 +886,12 @@ add_action( 'init', function () {
         if ( is_wp_error( $result ) ) {
             $terug = dp_toolbox_ml_back_url( 'sent' );
             $terug = add_query_arg( 'dp-ml-fout', rawurlencode( $result->get_error_message() ), $terug );
+
+            // Is de code dood (verlopen, verbruikt, te vaak fout), dan zegt de melding
+            // "vraag hieronder een nieuwe aan" — klap dat formulier dan ook meteen open.
+            if ( ! in_array( $result->get_error_code(), [ 'dp_ml_code_wrong', 'dp_ml_throttled' ], true ) ) {
+                $terug = add_query_arg( 'dp-ml-nieuw', '1', $terug );
+            }
             wp_safe_redirect( $terug );
             exit;
         }
@@ -981,7 +988,7 @@ function dp_toolbox_ml_back_url( $status ) {
     $posted = isset( $_POST['dp_ml_return'] ) ? esc_url_raw( wp_unslash( $_POST['dp_ml_return'] ) ) : '';
     $base   = $posted ? $posted : (string) wp_get_referer();
     $base   = wp_validate_redirect( $base, home_url( '/' ) );
-    $base   = remove_query_arg( [ 'dp-ml', 'dp-ml-fout', 'dp-magic-login', 'uid' ], $base );
+    $base   = remove_query_arg( [ 'dp-ml', 'dp-ml-fout', 'dp-ml-nieuw', 'dp-magic-login', 'uid' ], $base );
 
     return add_query_arg( 'dp-ml', $status, $base );
 }
@@ -1053,8 +1060,6 @@ function dp_toolbox_ml_code_form_html() {
 
         <button type="submit" class="dp-ml-btn">Inloggen met code</button>
     </form>
-
-    <p class="dp-ml-scheiding"><span>of vraag een nieuwe aan</span></p>
     <?php
     return ob_get_clean();
 }
@@ -1063,10 +1068,26 @@ function dp_toolbox_ml_code_form_html() {
  * De inhoud van het blok: melding, uitleg en het formulier zelf.
  */
 function dp_toolbox_ml_panel_html( $redirect_to = '' ) {
+    $code_form = dp_toolbox_ml_code_form_html();
+
+    /*
+     * Staat het codeveld er, dan is dát de hoofdroute en klapt het aanvraagformulier
+     * in tot één regel. Twee invulvelden met twee grote knoppen onder elkaar laat
+     * een minder handige bezoeker twijfelen waar hij moet beginnen. Een <details>
+     * werkt zonder JS en wordt door schermlezers als uitklapbaar voorgelezen.
+     */
+    $inklappen = '' !== $code_form;
+    $open      = ! empty( $_GET['dp-ml-nieuw'] );
+
     ob_start();
     ?>
     <?php echo dp_toolbox_ml_notice_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-    <?php echo dp_toolbox_ml_code_form_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+    <?php echo $code_form; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+    <?php if ( $inklappen ) : ?>
+    <details class="dp-ml-opnieuw"<?php echo $open ? ' open' : ''; ?>>
+        <summary><?php echo dp_toolbox_ml_wants_link() ? 'Geen mail ontvangen?' : 'Geen code ontvangen?'; ?> Vraag een nieuwe aan</summary>
+        <div class="dp-ml-opnieuw-body">
+    <?php endif; ?>
     <p class="dp-ml-help"><?php
         if ( dp_toolbox_ml_wants_code() && ! dp_toolbox_ml_wants_link() ) {
             echo 'Vul je e-mailadres in, dan sturen we je een code van zes cijfers. Geen wachtwoord nodig.';
@@ -1096,8 +1117,46 @@ function dp_toolbox_ml_panel_html( $redirect_to = '' ) {
 
         <button type="submit" class="dp-ml-btn"><?php echo esc_html( dp_toolbox_ml_labels()['knop'] ); ?></button>
     </form>
+    <?php if ( $inklappen ) : ?>
+        </div>
+    </details>
+    <?php endif; ?>
+    <?php echo dp_toolbox_ml_email_script(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
     <?php
     return ob_get_clean();
+}
+
+/**
+ * Onthoudt het ingevulde adres in sessionStorage (alleen dit tabblad, weg bij
+ * sluiten) en vult het weer in als de bezoeker een nieuwe code aanvraagt. Het
+ * adres komt bewust niet in de URL of op de server terug: dan zou de
+ * bevestigingspagina verraden welk adres er is ingevuld.
+ * Ook: bij openklappen meteen in het e-mailveld, zodat je direct kunt typen.
+ */
+function dp_toolbox_ml_email_script() {
+    // Staat het blok twee keer op een pagina, dan draait dit twee keer; data-dp-ml voorkomt dubbele handlers.
+    return "<script>(function () {
+        var sleutel = 'dp_ml_email', adres = '';
+        try { adres = window.sessionStorage.getItem(sleutel) || ''; } catch (e) {}
+        var velden = document.querySelectorAll('.dp-ml-form input[name=\"dp_ml_email\"]:not([data-dp-ml])');
+        for (var i = 0; i < velden.length; i++) {
+            velden[i].setAttribute('data-dp-ml', '1');
+            if (adres && !velden[i].value) { velden[i].value = adres; }
+            velden[i].form.addEventListener('submit', function (e) {
+                var veld = e.target.querySelector('input[name=\"dp_ml_email\"]');
+                try { window.sessionStorage.setItem(sleutel, veld ? veld.value : ''); } catch (err) {}
+            });
+        }
+        var opnieuw = document.querySelectorAll('.dp-ml-opnieuw:not([data-dp-ml])');
+        for (var j = 0; j < opnieuw.length; j++) {
+            opnieuw[j].setAttribute('data-dp-ml', '1');
+            opnieuw[j].addEventListener('toggle', function (e) {
+                if (!e.target.open) { return; }
+                var veld = e.target.querySelector('input[name=\"dp_ml_email\"]');
+                if (veld) { try { veld.focus(); } catch (err) {} }
+            });
+        }
+    })();</script>";
 }
 
 /**
@@ -1188,13 +1247,19 @@ function dp_toolbox_ml_styles( $scope = '' ) {
     }
     {s}.dp-ml-input--code::placeholder { letter-spacing: .32em; color: #c3c4c7; font-weight: 400; }
     {s}.dp-ml-form--code { margin: 0 0 4px; }
-    {s}.dp-ml-scheiding {
-        display: flex; align-items: center; gap: 10px;
-        margin: 18px 0 16px; font-size: 12px; color: #8c8f94;
+
+    /* --- "Geen code ontvangen?" — ingeklapt aanvraagformulier onder het codeveld --- */
+    {s}.dp-ml-opnieuw { margin: 16px 0 0; text-align: center; }
+    {s}.dp-ml-opnieuw > summary {
+        display: inline-block; list-style: none; cursor: pointer; padding: 4px 2px;
+        font-size: 13px; font-weight: 600; color: ' . $accent . ';
+        text-decoration: underline; text-underline-offset: 3px;
     }
-    {s}.dp-ml-scheiding::before, {s}.dp-ml-scheiding::after {
-        content: ""; flex: 1; height: 1px; background: #dcdcde;
-    }
+    {s}.dp-ml-opnieuw > summary::-webkit-details-marker { display: none; }
+    {s}.dp-ml-opnieuw > summary:hover { color: ' . $hover . '; }
+    {s}.dp-ml-opnieuw > summary:focus-visible { outline: 2px solid ' . $accent . '; outline-offset: 2px; border-radius: 3px; }
+    {s}.dp-ml-opnieuw[open] > summary { color: #646970; text-decoration: none; }
+    {s}.dp-ml-opnieuw-body { margin: 12px 0 0; padding: 16px 0 0; border-top: 1px solid #dcdcde; text-align: left; }
     ';
 
     return str_replace( '{s}', $scope, $css );
