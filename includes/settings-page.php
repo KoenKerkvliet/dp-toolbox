@@ -114,7 +114,7 @@ function dp_toolbox_settings_page() {
     $tab_param    = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
     $checklist_aan = dp_toolbox_is_module_enabled( 'checklist' ) && function_exists( 'dp_toolbox_render_checklist_tab' );
 
-    $tabs = [ 'admin' ];
+    $tabs = [ 'admin', 'plugins' ];
     if ( $checklist_aan ) {
         $tabs[] = 'checklist';
     }
@@ -231,6 +231,9 @@ function dp_toolbox_settings_page() {
                             <span class="dashicons dashicons-yes-alt"></span> Oplevercheck
                         </a>
                     <?php endif; ?>
+                    <a href="<?php echo esc_url( add_query_arg( 'tab', 'plugins', $base_url ) ); ?>" class="<?php echo $tab === 'plugins' ? 'active' : ''; ?>">
+                        <span class="dashicons dashicons-update"></span> DP Plugins
+                    </a>
                 </nav>
                 <div class="dp-header-actions" id="dp-header-actions">
                         <?php if ( $tab === 'modules' ) : ?>
@@ -247,6 +250,8 @@ function dp_toolbox_settings_page() {
                 dp_toolbox_render_admin_tab();
             } elseif ( $tab === 'checklist' ) {
                 dp_toolbox_render_checklist_tab();
+            } elseif ( $tab === 'plugins' ) {
+                dp_toolbox_render_plugins_tab();
             } else {
                 dp_toolbox_render_modules_tab();
             }

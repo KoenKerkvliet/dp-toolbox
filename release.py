@@ -17,6 +17,7 @@ Wat het doet (in volgorde):
     6. git add -A && git commit -m "release X.Y.Z"
     7. git tag vX.Y.Z
     8. git push origin main && git push origin vX.Y.Z
+    9. publiceren naar het update-kanaal: ../../../DP distributie/publish.py
 
 Mapstructuur:
     Plugins/
@@ -43,6 +44,7 @@ PLUGIN_FILE    = os.path.join(PLUGIN_DIR, 'dp-toolbox.php')
 WERKMAP_DIR    = os.path.dirname(PLUGIN_DIR)
 ARCHIVE_ROOT   = os.path.dirname(WERKMAP_DIR)
 ZIP_SKIP_PREFIXES = ('.b64', '.deploy', '.dep_admin', '.tmp', '.refactor_plan', '.git')
+PUBLISH_SCRIPT = os.path.join(os.path.dirname(ARCHIVE_ROOT), 'DP distributie', 'publish.py')
 
 
 def die(msg):
@@ -138,30 +140,36 @@ def main():
     if r.stdout.strip():
         print("[release.py] LET OP: er staan ongecommitte wijzigingen die in deze release-commit komen.\n")
 
-    print("[1/5] Versie bijwerken in dp-toolbox.php")
+    print("[1/6] Versie bijwerken in dp-toolbox.php")
     write_version(new)
 
-    print("[2/5] Vorige versie archiveren")
+    print("[2/6] Vorige versie archiveren")
     archive_previous(current)
 
-    print("[3/5] ZIP bouwen")
+    print("[3/6] ZIP bouwen")
     new_dir = os.path.join(ARCHIVE_ROOT, new)
     os.makedirs(new_dir, exist_ok=True)
     new_zip = os.path.join(new_dir, f'dp-toolbox-{new}.zip')
     n, size = build_zip(new_zip)
     print(f"  {n} entries, {size:,} bytes -> {new_zip}")
 
-    print("[4/5] Git commit + tag")
+    print("[4/6] Git commit + tag")
     run(['git', 'add', '-A'])
     run(['git', 'commit', '-m', f'release {new}'])
     run(['git', 'tag', f'v{new}'])
 
-    print("[5/5] Push naar GitHub")
+    print("[5/6] Push naar GitHub")
     run(['git', 'push', 'origin', 'main'])
     run(['git', 'push', 'origin', f'v{new}'])
 
-    print(f"\n[release.py] DONE — v{new} live op GitHub.")
-    print("Andere sites met Git Updater pikken 'm op binnen 12 uur (of via 'Check for updates').")
+    print("[6/6] Publiceren naar het update-kanaal (dp-plugins)")
+    if not os.path.exists(PUBLISH_SCRIPT):
+        die(f"publish.py niet gevonden op {PUBLISH_SCRIPT} — release staat op GitHub maar niet in het kanaal")
+    if subprocess.run([sys.executable, PUBLISH_SCRIPT]).returncode != 0:
+        die("publiceren mislukt — de release staat wel op GitHub; los het op en draai publish.py opnieuw")
+
+    print(f"\n[release.py] DONE — v{new} live op GitHub en in het update-kanaal.")
+    print("Sites zien 'm bij hun volgende updatecheck, of direct via DP Toolbox → DP Plugins → Nu controleren.")
 
 
 if __name__ == '__main__':

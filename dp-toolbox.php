@@ -2,18 +2,22 @@
 /**
  * Plugin Name: DP Toolbox
  * Description: Design Pixels gereedschapskist — modulaire verzameling van site-tools.
- * Version: 2.63.1
+ * Version: 2.64.0
  * Author: Design Pixels
  * Text Domain: dp-toolbox
- * GitHub Plugin URI: KoenKerkvliet/dp-toolbox
- * Primary Branch: main
+ */
+
+/*
+ * Updates komen sinds 2.64.0 via het eigen kanaal (includes/dp-plugins.php),
+ * niet meer via Git Updater — daarom staat de GitHub-header van Git Updater
+ * hier niet meer. Terugzetten zou twee kanalen voor één plugin geven.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DP_TOOLBOX_VERSION', '2.63.1' );
+define( 'DP_TOOLBOX_VERSION', '2.64.0' );
 define( 'DP_TOOLBOX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DP_TOOLBOX_URL', plugin_dir_url( __FILE__ ) );
 
@@ -519,6 +523,7 @@ add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
 require_once DP_TOOLBOX_PATH . 'includes/branding.php';
 require_once DP_TOOLBOX_PATH . 'includes/admin-ui.php';
 require_once DP_TOOLBOX_PATH . 'includes/settings-page.php';
+require_once DP_TOOLBOX_PATH . 'includes/dp-plugins.php'; // eigen update-kanaal voor de DP-plugins (vervangt Git Updater)
 require_once DP_TOOLBOX_PATH . 'includes/import-export.php';
 require_once DP_TOOLBOX_PATH . 'includes/dp-menu-groep.php'; // gedeeld met alle DP-plugins
 require_once DP_TOOLBOX_PATH . 'includes/opvultekst.php'; // lorem ipsum: module Lorem ipsum + Oplevercheck
