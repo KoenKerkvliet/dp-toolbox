@@ -23,7 +23,9 @@ function dp_toolbox_current_user_has_access() {
     $user = wp_get_current_user();
     if ( ! $user || ! $user->ID ) return false;
 
-    return dp_toolbox_is_dp_user( $user->ID );
+    // function_exists: valt includes/dp-user.php ooit weg (zie de toelichting
+    // daar), dan is niemand DP-user en blijft de site gewoon draaien.
+    return function_exists( 'dp_toolbox_is_dp_user' ) && dp_toolbox_is_dp_user( $user->ID );
 }
 
 /* ------------------------------------------------------------------ */
@@ -96,10 +98,89 @@ add_action( 'admin_menu', function () {
 
 /* Settings link on Plugins page */
 add_filter( 'plugin_action_links_dp-toolbox/dp-toolbox.php', function ( $links ) {
-    $url  = admin_url( 'admin.php?page=dp-toolbox' );
-    $link = '<a href="' . esc_url( $url ) . '">Instellingen</a>';
-    array_unshift( $links, $link );
+    // Instellingen-link alleen voor wie de pagina ook mag openen; anders wijst
+    // hij een klant naar een scherm dat met "geen toegang" afkapt.
+    if ( dp_toolbox_current_user_has_access() ) {
+        $url  = admin_url( 'admin.php?page=dp-toolbox' );
+        $link = '<a href="' . esc_url( $url ) . '">Instellingen</a>';
+        array_unshift( $links, $link );
+    }
+
+    /*
+     * Zichtbaar, maar niet uit te zetten.
+     *
+     * Tot 2.64.1 haalden we de hele plugin-regel weg voor niet-DP-users. Dat
+     * beschermde tegen een klant die de toolbox uitschakelt — modules als
+     * code-snippets houden site-functionaliteit overeind — maar een plugin die
+     * zichzelf verbergt op basis van het e-maildomein van de ingelogde
+     * beheerder is niet te onderscheiden van een backdoor. Een malwarescanner
+     * op hostingniveau knipte dat blok er op 20 september 2026 uit en legde een
+     * klantsite plat; een scan bij de klant zou tot dezelfde conclusie komen.
+     *
+     * De regel blijft nu staan, alleen Deactiveren en Verwijderen verdwijnen.
+     * Zelfde bescherming, niets verstopt.
+     */
+    if ( ! dp_toolbox_current_user_has_access() ) {
+        unset( $links['deactivate'], $links['delete'] );
+        $links[] = '<span style="color:#646970;">Beheerd door Design Pixels</span>';
+    }
+
     return $links;
+} );
+
+/**
+ * Harde grendel achter die weggehaalde links.
+ *
+ * Alleen de links weghalen is cosmetisch: het vinkje vóór de plugin-regel staat
+ * er nog, dus met een bulkactie zet je 'm alsnog uit. Deze check draait vóór
+ * wp-admin/plugins.php z'n werk doet en haalt DP Toolbox uit de selectie.
+ */
+add_action( 'load-plugins.php', function () {
+    if ( dp_toolbox_current_user_has_access() ) {
+        return;
+    }
+
+    $basenaam = 'dp-toolbox/dp-toolbox.php';
+    $acties   = [
+        isset( $_REQUEST['action'] )  ? sanitize_key( wp_unslash( $_REQUEST['action'] ) )  : '',
+        isset( $_REQUEST['action2'] ) ? sanitize_key( wp_unslash( $_REQUEST['action2'] ) ) : '',
+    ];
+
+    if ( ! array_intersect( $acties, [ 'deactivate', 'deactivate-selected', 'delete-selected' ] ) ) {
+        return;
+    }
+
+    $terug = add_query_arg( 'dp_toolbox_vergrendeld', '1', admin_url( 'plugins.php' ) );
+
+    // Bulkactie: alleen onszelf uit de selectie halen, de rest gewoon laten lopen.
+    if ( isset( $_REQUEST['checked'] ) && is_array( $_REQUEST['checked'] ) ) {
+        $checked = array_map( 'sanitize_text_field', wp_unslash( $_REQUEST['checked'] ) );
+        if ( ! in_array( $basenaam, $checked, true ) ) {
+            return;
+        }
+        $rest = array_values( array_diff( $checked, [ $basenaam ] ) );
+        if ( empty( $rest ) ) {
+            wp_safe_redirect( $terug );
+            exit;
+        }
+        $_REQUEST['checked'] = $rest;
+        $_POST['checked']    = $rest;
+        $_GET['checked']     = $rest;
+        return;
+    }
+
+    // Losse actie op precies deze plugin.
+    if ( isset( $_REQUEST['plugin'] ) && $basenaam === wp_unslash( $_REQUEST['plugin'] ) ) {
+        wp_safe_redirect( $terug );
+        exit;
+    }
+} );
+
+add_action( 'admin_notices', function () {
+    if ( ! isset( $_GET['dp_toolbox_vergrendeld'] ) ) {
+        return;
+    }
+    echo '<div class="notice notice-info is-dismissible"><p><strong>DP Toolbox</strong> hoort bij het websitebeheer van deze site en kan hier niet worden uitgeschakeld of verwijderd. Neem contact op met Design Pixels als dat toch nodig is.</p></div>';
 } );
 
 /* ------------------------------------------------------------------ */

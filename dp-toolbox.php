@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DP Toolbox
  * Description: Design Pixels gereedschapskist — modulaire verzameling van site-tools.
- * Version: 2.64.1
+ * Version: 2.65.0
  * Author: Design Pixels
  * Text Domain: dp-toolbox
  */
@@ -17,42 +17,32 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DP_TOOLBOX_VERSION', '2.64.1' );
+define( 'DP_TOOLBOX_VERSION', '2.65.0' );
 define( 'DP_TOOLBOX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DP_TOOLBOX_URL', plugin_dir_url( __FILE__ ) );
 
 /* ------------------------------------------------------------------ */
-/*  DP-user check (plugin-wide)                                        */
-/*  Users met @designpixels.nl e-mail zien de plugin in admin.         */
-/*  Andere admins zien noch de plugin-regel in wp-admin/plugins.php    */
-/*  noch het DP Toolbox menu — modules blijven wel actief functioneren.*/
+/*  DP-user check (plugin-breed)                                       */
+/*  Users met @designpixels.nl e-mail zien het DP Toolbox-menu en de   */
+/*  instellingenpagina's. Andere beheerders zien het menu niet; de     */
+/*  modules blijven voor hen wel gewoon werken.                        */
+/*                                                                     */
+/*  De functie zelf staat in includes/dp-user.php — zie de toelichting */
+/*  daar waarom dat een apart bestand is. Vroeg inladen, want vrijwel  */
+/*  alles hieronder leunt erop.                                        */
 /* ------------------------------------------------------------------ */
-function dp_toolbox_is_dp_user( $user_id = null ) {
-    if ( null === $user_id ) {
-        $user_id = get_current_user_id();
-    }
-    if ( ! $user_id ) {
-        return apply_filters( 'dp_toolbox_is_dp_user', false, $user_id );
-    }
+require_once DP_TOOLBOX_PATH . 'includes/dp-user.php';
 
-    $user  = get_userdata( $user_id );
-    $is_dp = $user && ! empty( $user->user_email )
-        && str_ends_with( strtolower( trim( $user->user_email ) ), '@designpixels.nl' );
-
-    return apply_filters( 'dp_toolbox_is_dp_user', $is_dp, $user_id );
-}
-
-/**
- * Verberg de DP Toolbox plugin-regel in wp-admin/plugins.php voor niet-DP-users.
- * Priority 5 — vóór User Manager's per-user filter (110).
+/*
+ * Tot 2.64.1 haalde een `all_plugins`-filter de DP Toolbox-regel weg uit
+ * wp-admin/plugins.php voor niet-DP-users. Dat is sinds 2.65.0 vervangen door
+ * zichtbaar-maar-vergrendeld (zie includes/settings-page.php): een plugin die
+ * zichzelf uit de lijst haalt op basis van het e-maildomein van de ingelogde
+ * beheerder is technisch niet te onderscheiden van een backdoor. Een
+ * malwarescanner op hostingniveau knipte dat blok er op 20 september 2026 uit
+ * en legde daarmee een klantsite plat. Alleen de acties weghalen levert
+ * dezelfde bescherming op zonder die schijn.
  */
-add_filter( 'all_plugins', function ( $plugins ) {
-    if ( dp_toolbox_is_dp_user() ) {
-        return $plugins;
-    }
-    unset( $plugins['dp-toolbox/dp-toolbox.php'] );
-    return $plugins;
-}, 5 );
 
 /**
  * Get metadata from a module's main file header.
@@ -453,7 +443,7 @@ add_action( 'plugins_loaded', 'dp_toolbox_load_modules' );
  * ze hier nog aan en draait DP Webshop niet, dan zijn ze na deze update weg: meld dat.
  */
 add_action( 'admin_notices', function () {
-    if ( ! dp_toolbox_is_dp_user() || defined( 'DP_WEBSHOP_VERSION' ) ) {
+    if ( ! function_exists( 'dp_toolbox_is_dp_user' ) || ! dp_toolbox_is_dp_user() || defined( 'DP_WEBSHOP_VERSION' ) ) {
         return;
     }
     $verhuisd = [ 'fluentcart-nederlands', 'fluentcart-productspecificaties', 'fluentcart-verkoopelementen', 'fluentcart-verzenddrempel', 'fluentcart-winkelfixes', 'reviews' ];
@@ -485,7 +475,7 @@ function dp_toolbox_get_module_notices() {
 /* ------------------------------------------------------------------ */
 
 add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
-    if ( ! dp_toolbox_is_dp_user() ) return;
+    if ( ! function_exists( 'dp_toolbox_is_dp_user' ) || ! dp_toolbox_is_dp_user() ) return;
     if ( '0' === get_option( 'blog_public' ) ) {
         $wp_admin_bar->add_node( [
             'id'    => 'dp-toolbox-noindex',
@@ -503,7 +493,7 @@ add_action( 'admin_head', 'dp_toolbox_noindex_bar_css' );
 add_action( 'wp_head', 'dp_toolbox_noindex_bar_css' );
 
 function dp_toolbox_noindex_bar_css() {
-    if ( ! dp_toolbox_is_dp_user() ) return;
+    if ( ! function_exists( 'dp_toolbox_is_dp_user' ) || ! dp_toolbox_is_dp_user() ) return;
     if ( '0' !== get_option( 'blog_public' ) ) return;
     echo '<style>#wpadminbar #wp-admin-bar-dp-toolbox-noindex > .ab-item { background: #d63638 !important; color: #fff !important; font-weight: 700 !important; letter-spacing: 0.5px; }</style>';
 }
@@ -515,7 +505,7 @@ function dp_toolbox_noindex_bar_css() {
 /*  we de upstream plugin niet hoeven te patchen.                      */
 /* ------------------------------------------------------------------ */
 add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
-    if ( dp_toolbox_is_dp_user() ) return;
+    if ( ! function_exists( 'dp_toolbox_is_dp_user' ) || dp_toolbox_is_dp_user() ) return;
     $wp_admin_bar->remove_node( 'novamira-mcp-status' );
 }, PHP_INT_MAX );
 

@@ -12,13 +12,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /* ------------------------------------------------------------------
  *  Superadmin whitelist
- *  Delegate naar dp_toolbox_is_dp_user() (gedefinieerd in dp-toolbox.php)
+ *  Delegate naar dp_toolbox_is_dp_user() (gedefinieerd in includes/dp-user.php)
  *  zodat er één bron van waarheid is voor "is dit een DP-user".
  *  Users met @designpixels.nl e-mailadres zijn altijd immuun voor
  *  hide-rules en kunnen nooit via de UI geblokkeerd worden.
  * ------------------------------------------------------------------ */
 function dp_toolbox_um_is_superadmin( $user_id = null ) {
-    return dp_toolbox_is_dp_user( $user_id );
+    // function_exists: valt includes/dp-user.php ooit weg, dan is niemand
+    // superadmin. Hooguit lastig, nooit fataal — zie dp-user.php.
+    return function_exists( 'dp_toolbox_is_dp_user' ) && dp_toolbox_is_dp_user( $user_id );
 }
 
 /* ------------------------------------------------------------------
