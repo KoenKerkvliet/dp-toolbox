@@ -1,0 +1,465 @@
+/*!
+ * DP Toolbox — Feedback
+ * Gebaseerd op de opmerkingenfunctie van Pencilino by Rino de Boer
+ * (https://github.com/rinothecoder/pencilino), GPL-2.0-or-later.
+ *
+ * Kleuren komen uit de gedeelde branding (zie feedback.php). Elk element zet zijn
+ * eigen typografie en knopstijl, zodat thema-CSS er niet doorheen lekt.
+ */
+
+.dp-fb-ui,
+.dp-fb-ui *,
+.dp-fb-ui *::before,
+.dp-fb-ui *::after {
+	box-sizing: border-box;
+}
+
+.dp-fb-ui {
+	--dp-fb-ink: #1d1b26;
+	--dp-fb-zacht: #5c5870;
+	--dp-fb-rand: #e3e0ed;
+	--dp-fb-vlak: #ffffff;
+	--dp-fb-licht: #f6f4fb;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	font-size: 14px;
+	font-style: normal;
+	font-weight: 400;
+	line-height: 1.45;
+	letter-spacing: normal;
+	text-align: left;
+	text-transform: none;
+	color: var(--dp-fb-ink);
+}
+
+.dp-fb-ui[hidden],
+.dp-fb-ui [hidden] {
+	display: none !important;
+}
+
+/* Gedeelde balk linksonder (ook in bewerken.css, identiek): Bewerken, Feedback, Uitloggen. */
+.dp-balk {
+	position: fixed;
+	z-index: 2147483000;
+	left: 20px;
+	bottom: 20px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	box-sizing: border-box;
+}
+
+.dp-balk__knop--bewerken { order: 1; }
+.dp-balk__knop--feedback { order: 2; }
+
+.dp-balk__uitlog {
+	order: 3;
+	padding: 6px 10px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.92);
+	box-shadow: 0 2px 8px rgba(20, 16, 40, 0.12);
+	color: #5c5870;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.2;
+	letter-spacing: normal;
+	text-transform: none;
+	text-decoration: none;
+	cursor: pointer;
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.dp-balk__uitlog:hover {
+	background: #fff;
+	color: #281E5D;
+}
+
+.dp-balk__uitlog:focus-visible {
+	outline: 3px solid rgba(40, 30, 93, 0.35);
+	outline-offset: 2px;
+}
+
+.dp-fb-knop {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 42px;
+	margin: 0;
+	padding: 0 16px 0 12px;
+	border: 1px solid rgba(var(--dp-fb-accent-rgb), 0.25);
+	border-radius: 999px;
+	background: var(--dp-fb-vlak);
+	box-shadow: 0 12px 30px rgba(20, 16, 40, 0.18), 0 2px 6px rgba(20, 16, 40, 0.08);
+	color: var(--dp-fb-accent);
+	font: inherit;
+	font-size: 13px;
+	font-weight: 600;
+	white-space: nowrap;
+	cursor: pointer;
+	appearance: none;
+	transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.dp-fb-knop:hover {
+	background: var(--dp-fb-licht);
+	border-color: rgba(var(--dp-fb-accent-rgb), 0.5);
+	box-shadow: 0 14px 34px rgba(20, 16, 40, 0.24), 0 2px 6px rgba(20, 16, 40, 0.1);
+	transform: translateY(-1px);
+}
+
+.dp-fb-knop:active {
+	box-shadow: 0 6px 16px rgba(20, 16, 40, 0.2);
+	transform: translateY(1px);
+}
+
+.dp-fb-knop:focus-visible {
+	outline: 3px solid rgba(var(--dp-fb-accent-rgb), 0.35);
+	outline-offset: 2px;
+}
+
+.dp-fb-knop[aria-pressed="true"] {
+	background: var(--dp-fb-accent);
+	border-color: var(--dp-fb-accent);
+	color: #fff;
+}
+
+/* Aan: ook hier moet je zien dat de knop reageert. */
+.dp-fb-knop[aria-pressed="true"]:hover {
+	background: var(--dp-fb-accent-hover);
+	border-color: var(--dp-fb-accent-hover);
+}
+
+.dp-fb-knop__icoon {
+	width: 18px;
+	height: 18px;
+	background-color: currentColor;
+	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M4 5h16v11H9l-5 4z'/%3E%3C/svg%3E") center / contain no-repeat;
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M4 5h16v11H9l-5 4z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.dp-fb-knop__teller {
+	min-width: 20px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--dp-fb-accent);
+	color: #fff;
+	font-size: 11px;
+	line-height: 20px;
+	text-align: center;
+}
+
+.dp-fb-knop[aria-pressed="true"] .dp-fb-knop__teller {
+	background: #fff;
+	color: var(--dp-fb-accent);
+}
+
+/* Aanwijzen */
+html.dp-fb-actief,
+html.dp-fb-actief body * {
+	cursor: crosshair !important;
+}
+
+html.dp-fb-actief .dp-fb-ui,
+html.dp-fb-actief .dp-fb-ui *,
+html.dp-fb-actief .dp-balk,
+html.dp-fb-actief .dp-balk * {
+	cursor: auto !important;
+}
+
+html.dp-fb-actief .dp-balk :is(button, a, button *, a *) {
+	cursor: pointer !important;
+}
+
+/* Een hand op elke knop en link, ook op het icoon, de tekst en de teller erbinnen. De regel hierboven zet
+   alle onderdelen van onze interface op "auto"; zonder dit krijg je een pijl zodra je op de tekst wijst. */
+html.dp-fb-actief .dp-fb-ui :is(button, a, button *, a *) {
+	cursor: pointer !important;
+}
+
+.dp-fb-kader {
+	position: fixed;
+	z-index: 2147482998;
+	border: 2px dashed var(--dp-fb-accent);
+	border-radius: 6px;
+	background: rgba(var(--dp-fb-accent-rgb), 0.06);
+	pointer-events: none;
+}
+
+.dp-fb-kader__label {
+	position: absolute;
+	top: -28px;
+	left: -2px;
+	max-width: min(420px, calc(100vw - 32px));
+	padding: 3px 9px;
+	border-radius: 6px;
+	background: var(--dp-fb-accent);
+	color: #fff;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 20px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dp-fb-kader--label-binnen .dp-fb-kader__label {
+	top: 6px;
+	left: 6px;
+}
+
+/* Pins */
+.dp-fb-pins {
+	position: fixed;
+	inset: 0;
+	z-index: 2147482999;
+	pointer-events: none;
+}
+
+.dp-fb-pin {
+	position: absolute;
+	display: grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	margin: 0;
+	padding: 0;
+	border: 2px solid #fff;
+	border-radius: 50% 50% 50% 4px;
+	background: var(--dp-fb-accent);
+	box-shadow: 0 4px 12px rgba(20, 16, 40, 0.3);
+	color: #fff;
+	font: inherit;
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 1;
+	transform: translate(-50%, -50%);
+	pointer-events: auto;
+	appearance: none;
+}
+
+.dp-fb-pin {
+	transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.dp-fb-pin:hover {
+	background: var(--dp-fb-accent-hover);
+	transform: translate(-50%, -50%) scale(1.15);
+}
+
+.dp-fb-pin:focus-visible {
+	outline: 3px solid rgba(var(--dp-fb-accent-rgb), 0.4);
+	outline-offset: 2px;
+}
+
+/* Popup */
+.dp-fb-popup {
+	position: fixed;
+	z-index: 2147483001;
+	width: min(360px, calc(100vw - 32px));
+	max-height: calc(100dvh - 32px);
+	overflow: auto;
+	padding: 16px;
+	border: 1px solid var(--dp-fb-rand);
+	border-radius: 12px;
+	background: var(--dp-fb-vlak);
+	box-shadow: 0 22px 55px rgba(20, 16, 40, 0.22), 0 4px 12px rgba(20, 16, 40, 0.08);
+}
+
+.dp-fb-popup p {
+	margin: 0;
+}
+
+.dp-fb-popup__titel {
+	margin: 0 0 12px !important;
+	color: var(--dp-fb-accent);
+	font-size: 13px;
+	font-weight: 700;
+	overflow-wrap: anywhere;
+}
+
+.dp-fb-popup__veldlabel {
+	display: block;
+	margin: 0 0 6px;
+	color: var(--dp-fb-zacht);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.dp-fb-popup__invoer {
+	display: block;
+	width: 100%;
+	min-height: 96px;
+	margin: 0;
+	padding: 10px 12px;
+	border: 1px solid var(--dp-fb-rand);
+	border-radius: 8px;
+	background: #fff;
+	box-shadow: none;
+	color: var(--dp-fb-ink);
+	font: inherit;
+	line-height: 1.5;
+	resize: vertical;
+	appearance: none;
+}
+
+.dp-fb-popup__invoer::placeholder {
+	color: #9a96ab;
+	opacity: 1;
+}
+
+.dp-fb-popup__invoer:focus {
+	border-color: var(--dp-fb-accent);
+	outline: none;
+	box-shadow: 0 0 0 3px rgba(var(--dp-fb-accent-rgb), 0.15);
+}
+
+.dp-fb-popup__hint {
+	margin-top: 8px !important;
+	color: var(--dp-fb-zacht);
+	font-size: 12px;
+}
+
+.dp-fb-popup__fout {
+	margin-top: 8px !important;
+	color: #b42318;
+	font-size: 12px;
+}
+
+.dp-fb-popup__meta {
+	color: var(--dp-fb-zacht);
+	font-size: 12px;
+}
+
+.dp-fb-popup__notitie {
+	margin-top: 8px !important;
+	font-size: 14px;
+	line-height: 1.55;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.dp-fb-popup__acties {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 14px;
+}
+
+.dp-fb-popup__knop {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 36px;
+	margin: 0;
+	padding: 0 14px;
+	border: 1px solid var(--dp-fb-accent);
+	border-radius: 8px;
+	background: var(--dp-fb-accent);
+	box-shadow: none;
+	color: #fff;
+	font: inherit;
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1;
+	text-decoration: none;
+	text-transform: none;
+	letter-spacing: normal;
+	appearance: none;
+}
+
+.dp-fb-popup__knop:hover {
+	background: var(--dp-fb-accent-hover);
+	border-color: var(--dp-fb-accent-hover);
+	color: #fff;
+}
+
+.dp-fb-popup__knop--stil {
+	border-color: var(--dp-fb-rand);
+	background: #fff;
+	color: var(--dp-fb-ink);
+}
+
+.dp-fb-popup__knop--stil:hover {
+	background: var(--dp-fb-licht);
+	border-color: var(--dp-fb-rand);
+	color: var(--dp-fb-ink);
+}
+
+.dp-fb-popup__knop:focus-visible {
+	outline: 3px solid rgba(var(--dp-fb-accent-rgb), 0.35);
+	outline-offset: 2px;
+}
+
+.dp-fb-popup__knop:disabled {
+	opacity: 0.6;
+	cursor: wait !important;
+}
+
+/* Melding */
+.dp-fb-melding {
+	position: fixed;
+	z-index: 2147483001;
+	left: 20px;
+	bottom: 72px;
+	padding: 7px 12px;
+	border-radius: 999px;
+	background: #1d1b26;
+	box-shadow: 0 8px 24px rgba(20, 16, 40, 0.2);
+	color: #fff;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+@media (max-width: 600px) {
+	.dp-balk {
+		left: 12px;
+		bottom: 12px;
+	}
+
+	/* Meerdere knoppen in de balk: alleen iconen, anders past het niet. Tekst blijft voor schermlezers. */
+	.dp-balk:has(.dp-balk__knop + .dp-balk__knop) :is(.dp-be-knop__tekst, .dp-fb-knop__tekst) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+	}
+
+	.dp-balk:has(.dp-balk__knop + .dp-balk__knop) .dp-balk__knop {
+		padding: 0 12px;
+	}
+
+	.dp-fb-melding {
+		left: 12px;
+		bottom: 62px;
+	}
+
+	.dp-fb-popup {
+		left: 12px !important;
+		right: 12px !important;
+		top: auto !important;
+		bottom: 64px !important;
+		width: auto;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dp-fb-knop,
+	.dp-fb-pin,
+	.dp-balk__uitlog {
+		transition: none;
+	}
+
+	.dp-fb-knop:hover,
+	.dp-fb-knop:active {
+		transform: none;
+	}
+
+	.dp-fb-pin:hover {
+		transform: translate(-50%, -50%);
+	}
+}
