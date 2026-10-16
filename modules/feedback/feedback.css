@@ -36,12 +36,18 @@
 	display: none !important;
 }
 
-/* Gedeelde balk linksonder (ook in bewerken.css, identiek): Bewerken, Feedback, Uitloggen. */
+/* Gedeelde balk onderaan het midden (ook in bewerken.css, identiek): Bewerken, Feedback, Uitloggen.
+   In het midden zit hij zelden een vast element van de site in de weg. Lukt dat toch niet (een brede
+   cookiemelding, een chatknop), dan tilt feedback.js hem erboven via --dp-balk-extra. */
 .dp-balk {
 	position: fixed;
 	z-index: 2147483000;
-	left: 20px;
-	bottom: 20px;
+	left: 0;
+	right: 0;
+	bottom: calc(20px + var(--dp-balk-extra, 0px));
+	width: max-content;
+	max-width: calc(100% - 24px);
+	margin-inline: auto;
 	display: flex;
 	align-items: center;
 	gap: 10px;
@@ -402,8 +408,12 @@ html.dp-fb-actief .dp-fb-ui :is(button, a, button *, a *) {
 .dp-fb-melding {
 	position: fixed;
 	z-index: 2147483001;
-	left: 20px;
-	bottom: 72px;
+	left: 0;
+	right: 0;
+	bottom: calc(72px + var(--dp-balk-extra, 0px));
+	width: max-content;
+	max-width: calc(100% - 24px);
+	margin-inline: auto;
 	padding: 7px 12px;
 	border-radius: 999px;
 	background: #1d1b26;
@@ -415,8 +425,7 @@ html.dp-fb-actief .dp-fb-ui :is(button, a, button *, a *) {
 
 @media (max-width: 600px) {
 	.dp-balk {
-		left: 12px;
-		bottom: 12px;
+		bottom: calc(12px + var(--dp-balk-extra, 0px));
 	}
 
 	/* Meerdere knoppen in de balk: alleen iconen, anders past het niet. Tekst blijft voor schermlezers. */
@@ -434,15 +443,14 @@ html.dp-fb-actief .dp-fb-ui :is(button, a, button *, a *) {
 	}
 
 	.dp-fb-melding {
-		left: 12px;
-		bottom: 62px;
+		bottom: calc(62px + var(--dp-balk-extra, 0px));
 	}
 
 	.dp-fb-popup {
 		left: 12px !important;
 		right: 12px !important;
 		top: auto !important;
-		bottom: 64px !important;
+		bottom: calc(64px + var(--dp-balk-extra, 0px)) !important;
 		width: auto;
 	}
 }

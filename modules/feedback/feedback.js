@@ -586,5 +586,75 @@
 	}, true );
 	window.addEventListener( 'resize', verversLater );
 
+	/* ------------------------------------------------------------------
+	   De balk staat onderaan het midden. Zit daar toch een vast element van de site onder (een brede
+	   cookiemelding, een "naar boven"- of chatknop), dan tillen we de balk erboven, zodat hij nooit
+	   een knop van de site afdekt. De hoogte gaat via de CSS-variabele --dp-balk-extra.
+	   ------------------------------------------------------------------ */
+
+	const ontwijk = () => {
+		html.style.setProperty( '--dp-balk-extra', '0px' );
+
+		const r = balk.getBoundingClientRect();
+		if ( ! r.width || ! r.height ) {
+			return;
+		}
+
+		const hoogte = window.innerHeight;
+		const xs = [ r.left + 4, r.left + r.width * 0.25, r.left + r.width / 2, r.left + r.width * 0.75, r.right - 4 ];
+		const ys = [ r.top + 4, r.top + r.height / 2, r.bottom - 4 ];
+		const gezien = new Set();
+		let extra = 0;
+
+		xs.forEach( ( x ) => ys.forEach( ( y ) => {
+			document.elementsFromPoint( x, y ).forEach( ( el ) => {
+				if ( gezien.has( el ) || el.closest( NEGEER ) ) {
+					return;
+				}
+				gezien.add( el );
+
+				let vast = el;
+				while ( vast && vast !== document.body && vast !== html ) {
+					const positie = window.getComputedStyle( vast ).position;
+					if ( 'fixed' === positie || 'sticky' === positie ) {
+						break;
+					}
+					vast = vast.parentElement;
+				}
+				if ( ! vast || vast === document.body || vast === html ) {
+					return;
+				}
+
+				// Alleen kleine vaste elementen in de onderste helft. Volledige lagen (popups, menu's) laten we met rust.
+				const v = vast.getBoundingClientRect();
+				if ( v.height > hoogte * 0.45 || v.top < hoogte * 0.5 || v.bottom < r.top ) {
+					return;
+				}
+				extra = Math.max( extra, Math.ceil( r.bottom - v.top + 10 ) );
+			} );
+		} ) );
+
+		html.style.setProperty( '--dp-balk-extra', extra + 'px' );
+	};
+
+	let ontwijkTimer = 0;
+	const ontwijkLater = () => {
+		window.clearTimeout( ontwijkTimer );
+		ontwijkTimer = window.setTimeout( ontwijk, 120 );
+	};
+
+	window.addEventListener( 'resize', ontwijkLater );
+	window.addEventListener( 'load', ontwijkLater );
+	document.addEventListener( 'transitionend', ontwijkLater, true );
+	document.addEventListener( 'animationend', ontwijkLater, true );
+	new MutationObserver( ( lijst ) => {
+		if ( lijst.some( ( m ) => ! m.target.closest || ! m.target.closest( NEGEER ) ) ) {
+			ontwijkLater();
+		}
+	} ).observe( document.body, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'class', 'style', 'hidden' ] } );
+	// Banners verschijnen vaak pas na het laden van de pagina.
+	[ 400, 1200, 2500 ].forEach( ( ms ) => window.setTimeout( ontwijkLater, ms ) );
+	ontwijkLater();
+
 	laad();
 }() );

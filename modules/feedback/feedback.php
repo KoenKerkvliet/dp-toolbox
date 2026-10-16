@@ -3,7 +3,7 @@
  * Module Name: Feedback
  * Description: Laat klanten op de website zelf feedback achterlaten, met een pin op het element waar het om gaat. Jij handelt alles af vanuit één overzicht.
  * Category: content
- * Version: 1.0.0
+ * Version: 1.0.1
  *
  * Gebaseerd op de opmerkingenfunctie van Pencilino by Rino de Boer
  * (https://github.com/rinothecoder/pencilino), uitgebracht onder GPL-2.0-or-later.
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const DP_TOOLBOX_FB_VERSIE = '1.0.0';
+const DP_TOOLBOX_FB_VERSIE = '1.0.1';
 
 /* ================================================================== */
 /*  Opslag                                                             */
